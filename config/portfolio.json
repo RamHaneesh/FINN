@@ -1,0 +1,24 @@
+{
+  "description": "Mock demo portfolio; equal weights are illustrative and are not investment recommendations.",
+  "companies": [
+    {"ticker": "RELIANCE", "sector": "Diversified energy and retail"},
+    {"ticker": "INFY", "sector": "IT services"},
+    {"ticker": "TCS", "sector": "IT services"},
+    {"ticker": "HDFCBANK", "sector": "Banking"},
+    {"ticker": "ICICIBANK", "sector": "Banking"},
+    {"ticker": "BAJFINANCE", "sector": "Consumer finance"},
+    {"ticker": "LT", "sector": "Engineering and construction"},
+    {"ticker": "MARUTI", "sector": "Automobiles"},
+    {"ticker": "SUNPHARMA", "sector": "Pharmaceuticals"},
+    {"ticker": "HINDUNILVR", "sector": "Consumer goods"},
+    {"ticker": "TITAN", "sector": "Consumer discretionary"},
+    {"ticker": "ULTRACEMCO", "sector": "Cement"},
+    {"ticker": "NTPC", "sector": "Power"},
+    {"ticker": "BHARTIARTL", "sector": "Telecommunications"},
+    {"ticker": "TRENT", "sector": "Retail"},
+    {"ticker": "DIXON", "sector": "Electronics manufacturing"},
+    {"ticker": "CAMS", "sector": "Financial infrastructure"},
+    {"ticker": "POLYCAB", "sector": "Electrical equipment"}
+  ],
+  "research_examples": ["INFY", "LT", "POLYCAB", "PERSISTENT"]
+}
