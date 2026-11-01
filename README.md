@@ -86,7 +86,7 @@ Mobile Client (390px Viewport)
 
 ## 5. Deliberate Trade-Offs (What Was Left Out & Why)
 
-* **No Desktop Dashboard Bloat:** Engineered strictly mobile-first (390px viewport). A fund manager needs actionable alerts while moving; desktop multi-pane widgets were avoided to maximize signal density.
+* **No Multi-Pane Desktop Bloat:** Engineered with a mobile-first responsive architecture rather than a sprawling desktop dashboard, prioritizing focused signal density and fast scannability on any screen size.
 * **No Secondary News or Broker Notes:** Secondary commentary introduces bias and noise. Restricting the engine to primary filings guarantees auditability.
 * **No Speculative Scorecards:** When management statements are qualitative or mismatched, FINN displays them as contextual commentary with primary citations rather than fabricating fake numerical verdicts.
 * **Single-Service Deployment:** Packaged as a consolidated FastAPI service on Render Free. The pre-warmed SQLite database is bundled in Git so all 35 companies load with zero cold-start database delay.
