@@ -12,6 +12,14 @@ Assessment deadline stated in the brief: **Sunday, November 1, 2026**.
 
 ## Implementation checkpoint: October 31, 2026
 
+### Mobile interface checkpoint
+
+- FastAPI now serves a buildless, responsive HTML/CSS/JS interface with Push Digest and Pull Deep Dive, plus an embedded worker through `scripts.serve`.
+- All 18 holdings have saved market data/filings. The 17-category classifier ranks high-priority disclosures and collapses lower-priority filings. Defaults are a 3% price move and volume strictly above 2x the prior 20-session average.
+- Financial tables are standardized Screener data, explicitly distinguished from primary transcript quotes. This follows the later request to keep table loads independent of PDF parsing. Annual reports remain linked. Original results extraction runs asynchronously and marked fallback values fill gaps.
+- Real Infosys and Dixon research/snapshots were prepared. Their transcript coverage is partial; uncertainty remains visible. Cached local responses were below 300 ms in verification; actual phone/Wi-Fi performance is not guaranteed by localhost timings.
+- See `MOBILE_TESTING.md` for running URLs, test steps and current source/extraction limitations. The earlier backend checkpoint below records the previous stage.
+
 - Initial backend modules and CLI entry points are implemented; see `README.md` for commands and current boundaries.
 - SQLite storage, document discovery/download/parsing, bounded Gemini extraction, evidence validation, conservative comparisons, initial alert rules, persistent research jobs and a development API are connected.
 - Eighteen offline checks pass, including API-to-worker execution. Live Infosys transcript extraction and EOD/filing refresh were verified; repeated extraction used zero model calls.

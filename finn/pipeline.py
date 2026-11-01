@@ -14,6 +14,7 @@ from finn.sources.discovery import ScreenerDiscovery
 from finn.sources.exchange import NSESource
 from finn.sources.http import PublicHTTP, SourceError
 from finn.sources.market import MarketSource
+from finn.sources.financials import FinancialSource
 from finn.storage import Store
 
 
@@ -31,19 +32,17 @@ class Pipeline:
     def research(self, ticker: str, max_documents=6, max_calls: int | None = None, refresh=False, progress=None) -> ResearchReport:
         ticker = normalize_ticker(ticker)
         progress = progress or (lambda stage: None)
-        progress("discovering")
-        links = self.discover(ticker, refresh=refresh)
-        selected = [link for link in links if link.kind == DocumentKind.TRANSCRIPT][:4]
-        selected += [link for link in links if link.kind == DocumentKind.ANNUAL_REPORT][:1]
-        warnings = ["Prototype coverage: up to four recent transcripts, one annual report and one recent results filing. Dates/basis and financial extraction still need human review."]
+        progress("financial_tables")
+        snapshot = None
         try:
-            announcements = NSESource(self.store, self.settings.finn_http_timeout).fetch(ticker, days=90, refresh=refresh)
-            results = [event for event in announcements if event.source_url and "result" in event.subject.lower() and "meeting" not in event.subject.lower() and "newspaper" not in event.subject.lower()]
-            if results:
-                event = max(results, key=lambda event: event.published_at)
-                selected.append(DocumentLink(ticker=ticker, url=event.source_url, kind=DocumentKind.RESULTS, title=event.subject, discovery_url="https://www.nseindia.com/companies-listing/corporate-filings-announcements", published_on=event.published_at.date()))
-        except Exception as exc:
-            warnings.append(f"Results discovery unavailable ({type(exc).__name__}); no substitute data used.")
+            snapshot = FinancialSource(self.store, self.http).fetch(ticker, refresh=refresh)
+        except Exception:
+            pass  # Transcript research can still proceed; the missing snapshot stays visible.
+        progress("discovering_transcripts")
+        links = self.discover(ticker, refresh=refresh)
+        # A fifth call allows one off-cycle transcript without losing the prior-year target.
+        selected = [link for link in links if link.kind == DocumentKind.TRANSCRIPT][:5]
+        warnings = ["Transcript analysis is primary-source grounded. Financial snapshot/derived actuals use separately labeled standardized Screener tables; they are not direct filing extraction. Annual reports remain linked in the source library and are not parsed on the interactive path."]
         selected = selected[:max_documents]
         progress("parsing")
         parsed = []
@@ -56,7 +55,8 @@ class Pipeline:
             raise SourceError("No usable primary PDFs were retrieved; inspect discovery links or source access")
         model = Gemini(self.settings, self.store, min(max_calls if max_calls is not None else self.settings.finn_max_model_calls, self.settings.finn_max_model_calls))
         extractor = Extractor(model)
-        narratives, facts = {}, {}
+        narratives = {}
+        facts = {fingerprint(fact.model_dump(mode="json")): fact for fact in FinancialSource.facts(snapshot)} if snapshot else {}
         batches = [chunks(document, self.settings.finn_chunk_chars) for document in parsed]
         # Annual reports are large: prioritize sections likely to hold audited context,
         # while preserving the full chunk count and explicit partial-coverage warning.
@@ -97,12 +97,12 @@ class Pipeline:
         today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
         facts = list(facts.values())
         narratives = list(narratives.values())
-        report = ResearchReport(ticker=ticker, generated_at=utc_now(), model=self.settings.gemini_model, documents=[document.source for document in parsed], narratives=narratives, facts=facts, comparisons=[compare(statement, facts, today) for statement in narratives], warnings=list(dict.fromkeys(warnings)), model_calls=model.calls, cache_hits=model.cache_hits, chunks_total=total, chunks_processed=processed, coverage="processed" if processed == total and len(parsed) == len(selected) else "partial")
+        report = ResearchReport(ticker=ticker, generated_at=utc_now(), model=self.settings.gemini_model, documents=[document.source for document in parsed] + [link for link in links if link.kind == DocumentKind.ANNUAL_REPORT][:1], narratives=narratives, facts=facts, comparisons=[compare(statement, facts, today) for statement in narratives], warnings=list(dict.fromkeys(warnings)), model_calls=model.calls, cache_hits=model.cache_hits, chunks_total=total, chunks_processed=processed, coverage="processed" if processed == total and len(parsed) == len(selected) else "partial")
         self.store.put("research-v1", ticker, report.model_dump(mode="json"))
         progress("complete")
         return report
 
-    def refresh(self, ticker: str, days=1, price_threshold=5., volume_multiple=2., categories=None, force=False):
+    def refresh(self, ticker: str, days=1, price_threshold=3., volume_multiple=2., categories=None, force=False):
         ticker = normalize_ticker(ticker)
         items, warnings, bars, events = [], [], [], []
         try:

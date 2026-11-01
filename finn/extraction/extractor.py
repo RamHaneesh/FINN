@@ -5,7 +5,7 @@ from pydantic import Field
 from finn.domain import Contract, FinancialFact, Narrative, Page, ParsedDocument
 from finn.models import Gemini
 
-EXTRACTION_VERSION = "narrative-facts-v1"
+EXTRACTION_VERSION = "narrative-facts-v2"
 
 
 class Extraction(Contract):
@@ -17,6 +17,17 @@ def normalized(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("\u00ad", "")).strip().casefold()
 
 
+def qualify_narrative(item: Narrative) -> Narrative:
+    quote = normalized(item.citation.quote)
+    if any(phrase in quote for phrase in ["premature to comment", "never give any guidance", "don't give any guidance", "not providing guidance", "not giving guidance"]):
+        return item.model_copy(update={"narrative_type": "unclear", "lower": None, "upper": None, "direction": None})
+    if re.search(r"next (two to three|2 to 3|two|three|2|3) years", quote):
+        return item.model_copy(update={"narrative_type": "aspiration", "period_start": None, "period_end": None})
+    if item.stated_on and item.period_end and item.stated_on > item.period_end and item.narrative_type == "guidance":
+        return item.model_copy(update={"period_start": None, "period_end": None})
+    return item
+
+
 def validate_evidence(extraction: Extraction, document: ParsedDocument, pages: list[Page]) -> tuple[Extraction, list[str]]:
     page_text = {}
     for page in pages:
@@ -25,9 +36,11 @@ def validate_evidence(extraction: Extraction, document: ParsedDocument, pages: l
     warnings = []
     for field in ["narratives", "facts"]:
         for item in getattr(extraction, field):
+            if isinstance(item, Narrative):
+                item = qualify_narrative(item)
             citation = item.citation
             available = page_text.get(citation.page, [])
-            if citation.document_id != document.document_id or citation.url != document.source.url or not any(normalized(citation.quote) in normalized(text) for text in available):
+            if citation.document_id != document.document_id or citation.url != document.source.url or not any(normalized(citation.quote).replace(" ", "") in normalized(text).replace(" ", "") for text in available):
                 warnings.append(f"Rejected {field} record: source quote/page did not match document {document.document_id[:10]}")
                 continue
             quote = normalized(citation.quote)
@@ -59,9 +72,16 @@ Company NSE symbol: {document.source.ticker}
 Document kind: {document.source.kind.value}; label: {document.source.title}
 Source URL: {document.source.url}
 Document ID: {document.document_id}
+All citations have source_type='pdf'. Leave observed_on null; never invent an observation timestamp.
+Document cover context (use only for dates/company identity, not financial quotations):
+{document.pages[0].text[:2200]}
 
 Extract up to 12 distinct management narratives and 16 actual financial facts, prioritizing
 revenue YoY/QoQ growth and EBITDA margin. Guidance describes future expectations;
+For a RESULTS document instead prioritize Revenue, EBITDA (only explicitly disclosed), PBT and PAT,
+for the current quarter, immediately previous quarter and same quarter last year. Read table columns
+carefully; do not mistake year-to-date totals or annual totals for standalone quarters. The document
+publication date is {document.source.published_on or 'not supplied'}; use it for reported_on only if supplied.
 directional expectations have a clear metric and direction; aspirations are long-term aims;
 unclear statements must not become guidance. Analysts' questions are NOT management guidance.
 Preserve revised guidance as new statements. Only extract explicitly stated historical actuals.

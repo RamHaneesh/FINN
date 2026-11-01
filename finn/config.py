@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     finn_max_pdf_mb: int = Field(default=30, ge=1, le=100)
     finn_max_model_calls: int = Field(default=6, ge=0, le=20)
     finn_chunk_chars: int = Field(default=18000, ge=4000, le=40000)
+    finn_embedded_worker: bool = False
 
     @property
     def api_key(self) -> str | None:

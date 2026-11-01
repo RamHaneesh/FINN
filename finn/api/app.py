@@ -1,27 +1,85 @@
 from contextlib import asynccontextmanager
 import json
+import threading
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from finn.config import ROOT, get_settings
 from finn.domain import normalize_ticker
 from finn.documents.parser import PARSER_VERSION
 from finn.pipeline import Pipeline
+from finn.services.portfolio import PortfolioService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pipeline = Pipeline(get_settings())
+    stop = threading.Event()
+    if app.state.pipeline.settings.finn_embedded_worker:
+        from finn.jobs.worker import run_once
+        def worker_loop():
+            while not stop.is_set():
+                if not run_once(app.state.pipeline):
+                    stop.wait(.5)
+        threading.Thread(target=worker_loop, daemon=True, name="finn-worker").start()
     yield
+    stop.set()
 
 
 app = FastAPI(title="FINN", version="0.1.0", lifespan=lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.mount("/assets", StaticFiles(directory=ROOT / "web/src"), name="assets")
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(ROOT / "web/index.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/digest")
+def digest(request: Request, hours: int = Query(default=24, ge=1, le=720)):
+    return PortfolioService(request.app.state.pipeline).digest(hours)
+
+
+@app.get("/api/company/{ticker}")
+def company_view(ticker: str, request: Request):
+    try:
+        data = PortfolioService(request.app.state.pipeline).company(ticker)
+        # Send the mobile view only what it renders; full evidence remains in SQLite/API.
+        if data["research"]:
+            data["research"].pop("facts", None)
+            data["research"].pop("narratives", None)
+        if data["snapshot"]:
+            data["snapshot"].pop("annual", None)
+            data["snapshot"]["history"] = data["snapshot"]["history"][-4:]
+        return data
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+class Preferences(BaseModel):
+    price_percent: float = Field(default=3, gt=0, le=50)
+    volume_multiple: float = Field(default=2, ge=1, le=20)
+
+
+@app.put("/api/preferences")
+def preferences(body: Preferences, request: Request):
+    request.app.state.pipeline.store.put("preferences-v1", "default", body.model_dump())
+    return body
+
+
+@app.post("/api/refresh", status_code=202)
+def refresh_portfolio(request: Request):
+    return request.app.state.pipeline.store.enqueue("PORTFOLIO", {"_kind": "refresh"})
 
 
 class ResearchRequest(BaseModel):
     ticker: str
-    max_documents: int = Field(default=6, ge=1, le=6)
+    max_documents: int = Field(default=5, ge=1, le=6)
     max_calls: int = Field(default=6, ge=0, le=20)
     refresh: bool = False
 
@@ -62,7 +120,7 @@ def research(ticker: str, request: Request):
         ticker = normalize_ticker(ticker)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
-    report = request.app.state.pipeline.store.get("research-v1", ticker)
+    report = PortfolioService(request.app.state.pipeline).company(ticker)["research"]
     if report is None:
         raise HTTPException(404, "No saved research; submit a research job first")
     return report

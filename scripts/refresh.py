@@ -11,7 +11,7 @@ def main():
     parser.add_argument("tickers", nargs="*")
     parser.add_argument("--portfolio", action="store_true")
     parser.add_argument("--days", type=int, choices=range(1, 91), default=1)
-    parser.add_argument("--price-percent", type=float, default=5.)
+    parser.add_argument("--price-percent", type=float, default=3.)
     parser.add_argument("--volume-multiple", type=float, default=2.)
     parser.add_argument("--categories", nargs="*", default=None)
     parser.add_argument("--force", action="store_true")

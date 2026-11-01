@@ -1,8 +1,5 @@
-# FINN mobile web interface
+# FINN interface
 
-Reserved for the React + TypeScript + Vite frontend described in `../WORKPLAN.md`.
+`index.html`, `src/app.css` and `src/app.js` provide a buildless responsive interface served by FastAPI. Assets are local; no external CSS/JS CDN is required.
 
-- `src/`: application views and reusable components.
-- `public/`: static assets.
-
-Planned views: Attention, Company Research and Evidence. The backend API lives in `../finn/api/`. Frontend implementation and its package manifest are not created yet.
+Run `python -m scripts.serve` with the project interpreter, then open the root URL. See `../MOBILE_TESTING.md` for the phone walkthrough.

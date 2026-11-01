@@ -14,8 +14,11 @@ def compatible(narrative: Narrative, fact: FinancialFact) -> bool:
         return False
     if narrative.metric in {"revenue_growth_yoy", "revenue_growth_qoq", "ebitda_margin"} and (narrative.unit != "percent" or fact.unit != "percent"):
         return False
-    if not fact.reported_on or not narrative.stated_on or fact.reported_on <= narrative.stated_on:
+    available = fact.reported_on or fact.observed_on
+    if not available or not narrative.stated_on or available <= narrative.stated_on:
         return False
+    if fact.reported_on is None and (not fact.period_end or narrative.stated_on > fact.period_end):
+        return False  # An observation timestamp is not a historical publication date.
     return narrative.unit != "unknown" and (narrative.unit == fact.unit or (narrative.unit in INR_CRORE and fact.unit in INR_CRORE))
 
 
@@ -31,7 +34,7 @@ def compare(narrative: Narrative, facts: list[FinancialFact], as_of: date) -> Co
         return outcome("Cannot compare", "The statement was made after the selected assessment date.")
     if narrative.period_end > as_of:
         return outcome("Pending", "The target period has not ended.")
-    candidates = [fact for fact in facts if compatible(narrative, fact) and fact.reported_on <= as_of]
+    candidates = [fact for fact in facts if compatible(narrative, fact) and (fact.reported_on or fact.observed_on) <= as_of]
     if not candidates:
         return outcome("Cannot compare", "No later actual matches the metric, period, reporting basis, currency basis and scope.")
     # Conflicting restatements are not silently resolved by choosing whichever supports the narrative.

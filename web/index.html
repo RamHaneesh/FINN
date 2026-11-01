@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173e35"><meta name="description" content="FINN — portfolio signals and evidence-backed company research.">
+  <title>FINN · Investment intelligence</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23173e35'/%3E%3Cpath d='M21 45V19h25M21 31h19' stroke='%23d5ed9a' stroke-width='7' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/app.css"><script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true"><symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6L10 14m0-9H5v15h15v-5"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></symbol><symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 5 7 7-7 7"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol></svg>
+<aside class="rail">
+  <a href="#digest" class="brand"><span class="brand-mark">F<span>.</span></span><span>FINN<span class="brand-caption">INVESTMENT INTELLIGENCE</span></span></a>
+  <span class="nav-label">WORKSPACE</span>
+  <nav><button class="nav-button active" data-view="digest"><svg><use href="#i-grid"/></svg>Push Digest<span class="nav-dot"></span></button><button class="nav-button" data-view="research"><svg><use href="#i-search"/></svg>Pull Deep Dive</button></nav>
+  <div class="rail-note"><span class="live-dot"></span>18 companies watched<p>The important changes.<br>The evidence behind them.</p></div>
+  <div class="rail-footer"><span class="avatar">EH</span><div>ENAM Holdings<small>Build challenge · FINN</small></div></div>
+</aside>
+<div class="workspace">
+  <header class="topbar"><a href="#digest" class="mobile-brand">FINN<span>.</span></a><span class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb">Push Digest</strong></span><div class="topbar-right"><span class="cached-label"><span class="live-dot"></span>Saved intelligence</span><span class="avatar small">EH</span></div></header>
+  <main>
+    <section id="view-digest" class="view">
+      <div class="page-heading"><div><p class="eyebrow" id="briefing-date">PORTFOLIO INTELLIGENCE</p><h1>Push Digest<span class="heading-dot">.</span></h1><p class="subtitle">What changed. What deserves your attention.</p></div><button class="button secondary" id="refresh-button"><svg><use href="#i-refresh"/></svg><span>Refresh</span></button></div>
+      <div id="digest-status" class="status-line" aria-live="polite">Loading saved portfolio…</div>
+      <div class="overview" id="overview"></div>
+      <div class="content-columns"><div class="feed-column">
+        <div class="section-heading"><div><span class="eyebrow">YOUR ATTENTION, PRIORITIZED</span><h2>Portfolio signals <span id="signal-count" class="count">0</span></h2></div><label class="select-label"><span class="sr-only">Digest period</span><select id="window-select"><option value="24">Last 24 hours</option><option value="72">Last 3 days</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option></select></label></div>
+        <div class="filter-row" id="digest-filters"><button class="filter active" data-filter="all">All signals</button><button class="filter" data-filter="results">Results</button><button class="filter" data-filter="management_change">Management</button><button class="filter" data-filter="market">Market moves</button></div>
+        <div id="feed" class="feed" aria-live="polite"></div>
+        <details class="routine-panel" id="routine-panel"><summary><span>Routine & lower-priority filings <span id="routine-count" class="count">0</span></span><svg><use href="#i-chevron"/></svg></summary><p class="muted">Kept for context. Collapsed to protect your attention.</p><div id="routine-list"></div></details>
+        <p class="source-note">Exchange filings · End-of-day prices · Source links on every card</p>
+      </div><aside class="watch-column"><div class="panel watch-panel"><div class="section-heading"><h2>Your watchlist</h2><span class="count">18</span></div><p class="muted">Across sectors. Latest saved close.</p><div id="watchlist"></div></div><details class="panel settings-panel"><summary><svg><use href="#i-sliders"/></svg>Alert preferences</summary><form id="settings-form"><label>Daily price move ≥<span><input id="price-threshold" type="number" min="0.1" max="50" step="0.1" value="3"> %</span></label><label>Volume &gt; prior 20-day average<span><input id="volume-threshold" type="number" min="1" max="20" step="0.1" value="2"> ×</span></label><button class="button secondary" type="submit">Save preferences</button></form><p class="muted" id="settings-status">Applied to saved market bars.</p></details></aside></div>
+    </section>
+    <section id="view-research" class="view" hidden>
+      <div class="page-heading"><div><p class="eyebrow">FROM NARRATIVE TO EVIDENCE</p><h1>Pull Deep Dive<span class="heading-dot">.</span></h1><p class="subtitle">What management said. What the numbers show.</p></div></div>
+      <form id="research-form" class="search-box"><svg><use href="#i-search"/></svg><label class="sr-only" for="ticker-input">NSE ticker</label><input id="ticker-input" placeholder="Search any NSE ticker, e.g. DIXON" autocomplete="off" spellcheck="false" maxlength="28"><button class="button primary" type="submit">Research <svg><use href="#i-arrow"/></svg></button></form>
+      <div class="quick-tickers"><span>Try a company</span><button data-ticker="INFY">INFY</button><button data-ticker="DIXON">DIXON</button><button data-ticker="TRENT">TRENT</button><span class="search-hint">.NS suffix optional</span></div>
+      <div id="research-status" class="status-line" aria-live="polite"></div>
+      <div id="research-content"></div>
+    </section>
+  </main>
+  <footer class="app-footer"><span>FINN / ENAM HOLDINGS</span><span>Intelligence with a source.</span></footer>
+</div>
+<nav class="mobile-nav" aria-label="Main navigation"><button data-view="digest" class="active"><svg><use href="#i-grid"/></svg>Push Digest</button><button data-view="research"><svg><use href="#i-search"/></svg>Pull Deep Dive</button></nav>
+<dialog id="evidence-dialog"><div class="dialog-heading"><div><span class="eyebrow">PRIMARY SOURCE</span><h2>Inspect the evidence</h2></div><button class="icon-button" id="close-evidence" aria-label="Close evidence">×</button></div><div id="evidence-content"></div></dialog>
+<div id="toast" role="status" hidden></div>
+</body></html>

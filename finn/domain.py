@@ -59,8 +59,9 @@ class ParsedDocument(Contract):
 class Citation(Contract):
     document_id: str
     url: str
-    page: int = Field(ge=1)
+    page: int | None = Field(default=None, ge=1)
     quote: str = Field(min_length=8)
+    source_type: Literal["pdf", "standardized_table"] = "pdf"
 
 
 Metric = Literal["revenue_growth_yoy", "revenue_growth_qoq", "ebitda_margin", "revenue", "ebitda", "pbt", "pat"]
@@ -101,6 +102,7 @@ class Narrative(FinancialContext):
 class FinancialFact(FinancialContext):
     value: float
     reported_on: date | None = None
+    observed_on: date | None = None
     citation: Citation
 
 

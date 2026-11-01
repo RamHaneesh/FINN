@@ -14,8 +14,19 @@ def run_once(pipeline: Pipeline) -> bool:
         return False
     job_id = job["id"]
     try:
-        report = pipeline.research(job["ticker"], **job["payload"], progress=lambda stage: pipeline.store.update_job(job_id, stage))
-        pipeline.store.update_job(job_id, "complete", "completed", report.model_dump(mode="json"))
+        payload = dict(job["payload"])
+        kind = payload.pop("_kind", "research")
+        progress = lambda stage: pipeline.store.update_job(job_id, stage)
+        if kind == "refresh":
+            from finn.services.portfolio import PortfolioService
+            result = PortfolioService(pipeline).refresh(progress)
+        elif kind == "headlines":
+            from finn.services.results import extract_headlines
+            result = extract_headlines(pipeline, payload["event"])
+        else:
+            report = pipeline.research(job["ticker"], **payload, progress=progress)
+            result = report.model_dump(mode="json")
+        pipeline.store.update_job(job_id, "complete", "completed", result)
     except Exception as exc:
         detail = str(exc) if isinstance(exc, (SourceError, ModelError)) else f"{type(exc).__name__}; inspect source access and configuration"
         pipeline.store.update_job(job_id, "failed", "failed", error=detail)
