@@ -1,121 +1,162 @@
+
 # FINN: Financial Investment Agent
 
-**Mobile-First Investment Intelligence Layer for Public-Market Investors**
+**A mobile-first financial research tool for public-market investors**
 
-[**Live Mobile Demo**](https://finn-investment-agent-f3ra.onrender.com/) · **No Login Required** · **Recommended Test Tickers: INFY, DIXON, CAMS**
-
----
-
-## 1. Executive Summary
-
-Public-market investors are overwhelmed by hundreds of daily exchange filings (~75% of which are routine compliance paperwork). Meanwhile, holding corporate management accountable to past guidance requires manually tracking historical commitments across conference call transcripts and reconciling them against subsequent quarterly filings.
-
-**FINN** automates this workflow across two interaction modes:
-* **Push (Proactive Triage):** Categorizes filings using a 17-class taxonomy, surfacing high-materiality events (earnings, management changes, M&A) while suppressing routine paperwork, paired with end-of-day anomaly triggers (>2× 20-day volume spikes, ≥±3% price moves).
-* **Pull (Narrative vs. Numbers):** On-demand deep dive comparing management's historical commitments (extracted from primary concall transcripts) against trailing financial delivery (standardized P&L tables).
-
-**Primary Source Discipline:** Strictly grounded in official exchange filings, primary concall transcripts, and standardized financial tables. No broker notes, no secondary news, and zero ungrounded generative hallucinations.
+[**Live Mobile Demo**](https://finn-investment-agent-f3ra.onrender.com/) · No login required
 
 ---
 
-## 2. Architecture & Key Engineering Decisions
+## 1. What I Built
+
+Investors have to go through many company announcements to find information that matters. Checking whether management has delivered on past promises also takes time, as the information is spread across earnings call transcripts and financial reports.
+
+FINN helps with both tasks through two main features:
+
+- **Push Digest:** Highlights important company announcements and unusual market movements while keeping routine filings separate.
+- **Company Deep Dive:** Lets users research a company, review its financial performance over five years, and compare management's past commitments against actual results.
+
+The main feature is **Narrative vs. Numbers**: comparing what management said it would achieve with what the company actually delivered.
+
+FINN uses company filings, financial statements, and earnings call transcripts as its main sources of information.
+
+## 2. Why I Chose Narrative vs. Numbers
+
+The assessment offered several possible directions, including business snapshots, financial analysis, cash-flow quality, guidance, and bull-versus-bear analysis.
+
+I chose **Narrative vs. Numbers as the main feature**, supported by business snapshots, financial snapshots, five-year trends, and management guidance.
+
+This gave the project one clear purpose: helping investors compare what management said with what the company actually delivered.
+
+The supporting features reuse the same financial data, making them useful without adding unnecessary complexity.
+
+I deliberately deferred:
+
+- **Balance Sheet Analysis:** Debt, leverage, and working capital need additional sector-specific checks and interpretation.
+- **Cash-Flow Quality:** Comparing reported profits with cash generation requires another data pipeline and additional validation.
+- **Bull vs. Bear Analysis:** Building reliable investment cases requires broader evidence and more interpretation, increasing the risk of unsupported conclusions.
+
+## 3. Architecture and Key Decisions
 
 ```text
-Mobile Client (390px Viewport)
-       │
-       ▼
-  FastAPI Server (Python 3.12 / Uvicorn)
-       │
-       ├─► [Fast Path: <25ms] ──► SQLite Cache (35-Ticker Pre-Warmed Universe)
-       │                          ├─ Business Profiles & Segment Mix
-       │                          ├─ Standardized Financial Snapshots
-       │                          └─ 5-Year Growth & Margin Trajectory
-       │
-       └─► [Deep Path: Async] ──► Embedded Research Worker
-                                  ├─ Primary Concall PDF Downloader & Slicer
-                                  ├─ Gemini Extraction (Strict JSON Schema)
-                                  └─ Metric Verification Engine (Met / Missed)
+Mobile Interface
+      |
+      v
+FastAPI Server (Python 3.12)
+      |
+      ├── SQLite Cache
+      |     ├── Company Profiles
+      |     ├── Financial Data
+      |     └── 5-Year Financial Trends
+      |
+      └── Research Worker
+            ├── Downloads and processes transcripts
+            ├── Gemini extracts relevant information
+            └── Python checks financial calculations
 ```
 
-### Architectural Principles
+### Key Engineering Decisions
 
-* **Code Calculates, Models Extract:** Gemini extracts structured quotes, metrics, and target dates from primary transcripts. All arithmetic, YoY/QoQ deltas, 5-year CAGRs, and guidance verdicts are computed deterministically in Python.
-* **Truth over Forced Completeness:** Only compatible historical targets and reported actuals receive a strict Met/Missed scorecard. Ambiguous, qualitative, or mismatched statements are preserved as contextual commentary with verified citations, while future targets remain cleanly separated under Active Guidance rather than manufacturing a speculative LLM verdict.
-* **Progressive Hydration:** Fast data (profiles, financials, and 5-year trajectories) loads in under 25ms. Heavy transcript analysis runs asynchronously in an embedded worker without blocking the user interface.
-* **Pre-Warmed Coverage Universe:** 35 actively traded NSE companies are pre-seeded in SQLite to ensure instant mobile evaluation. Uncached tickers automatically fall back to live on-demand extraction.
+- **AI extracts, code calculates:** Gemini extracts management statements, figures, and dates from transcripts. Python handles financial calculations and compares management's targets with reported results.
+- **Evidence before completeness:** When a statement is unclear or cannot be compared with reported financial data, FINN displays it as commentary with a source citation rather than assigning a Met/Missed result.
+- **Fast access to common companies:** Financial data for 35 NSE-listed companies is stored in a local SQLite database. Other companies can be researched through on-demand extraction.
+- **Research runs separately:** Basic company information and financial trends load first. Transcript analysis runs in the background so it does not hold up the rest of the page.
 
----
+## 4. Performance and Testing
 
-## 3. Verified Performance Benchmarks
+- **Response time:** Cached company data returned in under 25 ms across 210 API requests, with a median of approximately 7 ms.
+- **Company coverage:** 35 companies have company profiles, financial snapshots, and five-year financial trends available in the cache.
+- **Transcript reports:** 34 companies have verified transcript reports. TRENT is marked as having no public transcript archive.
+- **Tests:** 39 backend unit tests and 3 automated UI checks pass.
 
-* **Response Latency:** **< 25 ms** across all 35 companies (measured across 210 warm API requests; median: ~7 ms).
-* **Pre-Warmed Scope:**
-  * **35/35 companies** with complete Business Profiles, Financial Snapshots, and 5-Year Trajectories.
-  * **34/34 companies** with verified Concall Narrative Reports (`TRENT` explicitly marked as having no public transcript archive).
-* **Test Suite:** **39 backend unit tests** and **3 automated UI checks** passing across quote verification, margin validation, cache eviction, and recovery rules.
+## 5. Mobile Reviewer Walkthrough
 
----
+### Push Digest (Company Updates and Market Movements)
 
-## 4. Mobile Reviewer Guide (5-Step Walkthrough)
+**What you see:**
 
-### Step 1: Push Digest (Signal Triage)
-* Open the **Push Digest** feed.
-* Inspect the **CAMS** card: flags a **6.27× volume anomaly** (7.08M shares vs. 1.13M 20-day baseline).
-* Filter to **Results** to view **NTPC**: displays Revenue (₹54,270 Cr), EBITDA, PBT, and PAT with QoQ and YoY delta badges.
-* Tap **Routine Filings** at the bottom to verify low-signal compliance paperwork is collapsed.
+- A feed of important company announcements and unusual market movements, with routine filings kept separate.
+- Badges highlighting volume spikes, sharp price movements, management changes, and earnings releases.
+- Financial results cards showing Revenue, EBITDA, PBT, and PAT, along with quarter-on-quarter and year-on-year changes.
 
-### Step 2: Push-to-Pull Deep Linking
-* Tap the **`Deep dive →`** button on any push card (e.g., CAMS or NTPC).
-* The app smoothly switches to the **Pull** tab and immediately loads that company's research.
+**What you can do:**
 
-### Step 3: Narrative vs. Numbers (The Core Demo)
-* In the search bar, tap the **`[INFY]`** chip:
-  * Review the clean section sequence: **Business Snapshot → Financial Snapshot → 5-Year Trajectory**.
-  * Inspect the **Narrative vs. Numbers** card: FY2026 constant-currency revenue guidance of **3.0%–3.5%** verified against actual delivery of **3.1%**, marked **Met** with inline transcript citations (Pages 21 and 4).
+- Filter the feed by Results, Management, or Market Moves, and change the time window.
+- Expand the Routine & Lower-Priority Filings section to view announcements that are kept out of the main feed.
+- Open Preferences to view or change the thresholds used for market alerts.
+- Tap **Deep dive →** on an alert to open the company's research page.
 
-### Step 4: Handling Ambiguity (Truth over Hallucination)
-* Tap **`[DIXON]`**, **`[DMART]`**, or **`[SEDEMAC]`**:
-  * Inspect the **5-Year Trajectory** table showing compounding revenue and margin trends.
-  * Notice how qualitative statements (e.g., raw material cost pressure on EBITDA) are displayed as contextual commentary with transcript citations instead of manufacturing a fake numerical verdict.
+### Company Deep Dive (On-Demand Research)
 
-### Step 5: Mobile Interaction Polish
-* Tap the top **FINN** logo at any time: resets active filters, returns to the default digest, and scrolls to top.
-* Tap **Preferences** beside the Refresh button to inspect configurable anomaly thresholds (volume multiplier and price move %).
+**What you see:**
 
----
+- **Business Snapshot:** An overview of the company's business, main segments, and products.
+- **Financial Snapshot:** Recent quarterly financial results with growth and margin figures.
+- **5-Year Trajectory:** A table showing how revenue, profit, and margins have changed over five years, including growth rates.
+- **Narrative vs. Numbers:** When available, compares management's past commitments with reported financial results and shows whether a target was met or missed.
+- **Active Guidance & Commentary:** When available, shows future targets and management statements that cannot be directly compared with financial results, along with
+source citations.
 
-## 5. Deliberate Trade-Offs (What Was Left Out & Why)
+**What you can do:**
 
-* **No Multi-Pane Desktop Bloat:** Engineered with a mobile-first responsive architecture rather than a sprawling desktop dashboard, prioritizing focused signal density and fast scannability on any screen size.
-* **No Secondary News or Broker Notes:** Secondary commentary introduces bias and noise. Restricting the engine to primary filings guarantees auditability.
-* **No Speculative Scorecards:** When management statements are qualitative or mismatched, FINN displays them as contextual commentary with primary citations rather than fabricating fake numerical verdicts.
-* **Single-Service Deployment:** Packaged as a consolidated FastAPI service on Render Free. The pre-warmed SQLite database is bundled in Git so all 35 companies load with zero cold-start database delay.
+- Search for any NSE-listed company using the search bar or quick-selection chips.
+- Open transcript citations to read the original statement, along with the speaker and page reference.
+- Tap the FINN logo to reset filters and return to the default digest.
 
----
+## 6. Key Trade-offs and What I Left Out
 
-## 6. Local Setup & Reproduction
+- **Mobile-first interface:** I focused on a simple, single-column layout rather than a large desktop dashboard. This keeps the information easy to scan on a phone.
+- **Primary sources only:** I left out broker reports, news articles, and sentiment analysis to keep the research focused on company disclosures and reported financials.
+- **No forced scorecards:** Qualitative or unclear management statements are shown as commentary rather than assigned an unsupported numerical result.
+- **No live intraday streaming:** I focused on end-of-day market movements and company announcements rather than building a live streaming system.
+- **Single-service deployment:** The application runs as one FastAPI service on Render. The SQLite database is included with the repository to make the cached data available when the service starts.
+
+## 7. Where I Would Take It Next
+
+- **Cash-flow analysis:** Compare reported profits with operating cash flow to identify companies whose profits are not translating into cash.
+- **Live exchange updates:** Add real-time company announcement feeds to make important updates available sooner.
+- **Earnings call audio:** Process earnings call audio to identify changes in management's statements before written transcripts become available.
+
+## 8. AI Build History
+
+A sanitized Markdown export of my Codex build session, covering the development process, prompts, and testing, is available [here](docs/ai_build_history.md).
+
+## 9. Local Setup
+
+### Requirements
+
+- Python 3.12
+- Git
+
+### Run the application
 
 ```bash
-# 1. Clone repository and create virtual environment (Python 3.12)
 git clone https://github.com/RamHaneesh/FINN.git
 cd FINN
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .\.venv\Scripts\activate
 
-# 2. Install dependencies
+python -m venv .venv
+
+# Linux / macOS
+source .venv/bin/activate
+
+# Windows
+# .venv\Scripts\activate
+
 pip install -r requirements.txt
 
-# 3. Launch server
 python -m scripts.serve --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000` in your browser (or use mobile device emulation at 390px width).
+Open http://localhost:8000 in your browser.
 
-### Running Tests
+For mobile testing, use a browser's device emulation at a width of approximately 390px.
+
+### Run Tests
+
 ```bash
-# Run 39 offline backend tests
+# Backend tests
 python -m unittest discover -s tests -v
 
-# Run frontend integration checks (Node.js)
+# UI tests (requires Node.js)
 node --test tests/test_analysis_ui.mjs tests/test_company_ui.mjs tests/test_completion_ui.mjs
 ```
