@@ -27,6 +27,10 @@ def run_once(pipeline: Pipeline) -> bool:
         elif kind == "headlines":
             from finn.services.results import extract_headlines
             result = extract_headlines(pipeline, payload["event"])
+        elif kind == "business":
+            from finn.services.business import build_business
+            progress("business")
+            result = build_business(pipeline, job["ticker"], **payload)
         else:
             report = pipeline.research(job["ticker"], **payload, progress=progress)
             result = report.model_dump(mode="json")

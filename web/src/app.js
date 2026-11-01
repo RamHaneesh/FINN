@@ -1,3 +1,5 @@
+import {resultHeadline} from './feed.js';
+import {businessHtml,trajectoryHtml} from './company.js?v=20261101-table-3';
 import {createTickerSearch} from './search.js';
 import {createAnalysisProgress} from './analysis.js';
 const $ = s => document.querySelector(s);
@@ -15,7 +17,7 @@ function toast(text){$('#toast').textContent=text;$('#toast').hidden=false;setTi
 function delta(value){if(value==null)return '<span class="delta neutral">—</span>';return `<span class="delta ${value<0?'negative':''}">${value>0?'+':''}${number(value)}%</span>`;}
 function showView(view,{smooth=false,updateHash=true}={}) {
   document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!==`view-${view}`);
-  document.querySelectorAll('[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
+  document.querySelectorAll('[data-view]').forEach(el=>{const selected=el.dataset.view===view;el.classList.toggle('active',selected);if(selected)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
   $('#breadcrumb').textContent=view==='digest'?'Push Digest':'Pull Deep Dive';
   if(updateHash&&location.hash!==`#${view}`)history.pushState(null,'',`#${view}`);
   window.scrollTo({top:0,behavior:smooth&&!matchMedia('(prefers-reduced-motion: reduce)').matches?'smooth':'instant'});
@@ -29,6 +31,7 @@ function resetHome(event) {
   document.querySelectorAll('[data-filter]').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
   document.querySelectorAll('details[open]').forEach(el=>el.open=false);
   if($('#evidence-dialog').open)$('#evidence-dialog').close();
+  if($('#preferences-dialog').open)$('#preferences-dialog').close();
   $('#research-content').replaceChildren();$('#research-status').textContent='';$('#toast').hidden=true;
   tickerSearch.reset();analysisProgress.clearSelection();showView('digest',{smooth:true});loadDigest();
 }
@@ -43,26 +46,39 @@ function conciseFiling(item) {
 }
 const compactNumber=value=>Number(value).toLocaleString('en-US',{notation:'compact',maximumFractionDigits:2});
 function signalBody(item) {
-  if(item.category==='results')return `<h3>${esc(item.title)}</h3>${resultTable(item.financials)}${item.financials?.source_type==='standardized_table'?'<span class="filing-data-source">Standardized financial table</span>':''}`;
+  if(item.category==='results')return `<h3>${esc(resultHeadline(item,number))}</h3>${resultTable(item.financials)}${item.financials?.source_type==='standardized_table'?'<span class="filing-data-source">Standardized financial table</span>':''}`;
   if(item.category==='management_change') {
     const m=item.management;
-    return m?`<dl class="management-fields"><div><dt>Person</dt><dd>${esc(m.person)}</dd></div><div><dt>Executive role</dt><dd>${esc(m.role)}</dd></div><div><dt>Action</dt><dd>${esc(m.action)}</dd></div></dl>`:`<h3>${esc(conciseFiling(item)||'Management change disclosed · see filing')}</h3>`;
+    return m?`<dl class="management-fields"><div><dt>Person</dt><dd>${esc(m.person)}</dd></div><div><dt>Executive role</dt><dd>${esc(m.role)}</dd></div><div><dt>Action</dt><dd>${esc(m.action)}</dd></div></dl>`:`<h3>${esc(conciseFiling(item)||'Executive & Key Managerial Personnel change filed')}</h3>`;
   }
   const m=item.market;
   if(item.category==='volume'&&m)return `<h3>Volume ${Number(m.multiple).toFixed(2)}× of 20-day avg</h3><p class="market-detail">Traded: <strong>${compactNumber(m.volume)}</strong> vs Avg: <strong>${compactNumber(m.average_volume)}</strong></p>`;
   if(item.category==='price'&&m)return `<h3>Close ${m.change_percent>0?'+':''}${Number(m.change_percent).toFixed(2)}%</h3><p class="market-detail">₹${number(m.close)} vs ₹${number(m.previous_close)} previous close</p>`;
   const summary=conciseFiling(item);
-  return `<h3>${esc(item.title)}</h3>${summary?`<p>${esc(summary)}</p>`:''}`;
+  const generic=/^(general updates?|updates?|announcement|press release)$/i.test(item.title.trim());
+  return generic&&summary?`<h3>${esc(summary)}</h3>`:`<h3>${esc(item.title)}</h3>${summary?`<p>${esc(summary)}</p>`:''}`;
 }
 function badgeTone(item){return item.category==='volume'?'badge-amber':item.category==='results'?'badge-blue':item.category==='management_change'?'badge-purple':item.category==='price'?((item.market?.change_percent??0)<0?'badge-crimson':'badge-emerald'):'badge-neutral';}
-function card(item){return `<article class="signal-card"><div class="card-inner"><div class="card-meta"><div class="company-label"><span class="ticker-badge">${esc(item.ticker)}</span><span class="pill ${badgeTone(item)}">${esc(labels[item.category]||item.category||'Signal')}</span></div><span>${date(item.occurred_at)}</span></div>${signalBody(item)}</div><div class="card-footer"><span>${['price','volume'].includes(item.category)?'EOD observation':'Material filing'}${item.related_sources?.length>1?` · ${item.related_sources.length} filings`:''}</span><div><button class="text-button" data-ticker="${esc(item.ticker)}">Deep dive ${icon('arrow')}</button>${item.source_url?` &nbsp; <a class="text-button" href="${safeUrl(item.source_url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(item.ticker)} filing">${icon('link')}</a>`:''}</div></div></article>`;}
+function card(item){return `<article class="signal-card"><div class="card-inner"><div class="card-meta signal-header"><div class="company-label"><span class="ticker-badge">${esc(item.ticker)}</span><span class="pill ${badgeTone(item)}">${esc(labels[item.category]||item.category||'Signal')}</span></div><button class="deep-dive-button" data-ticker="${esc(item.ticker)}" aria-label="Deep dive into ${esc(item.ticker)}">Deep dive →</button></div><div class="signal-provenance"><time datetime="${esc(item.occurred_at)}">${date(item.occurred_at)}</time>${item.source_url?`<a href="${safeUrl(item.source_url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(item.ticker)} source">Source ${icon('link')}</a>`:''}${item.related_sources?.length>1?`<span>· ${item.related_sources.length} filings</span>`:''}</div>${signalBody(item)}</div></article>`;}
+
 function openCompany(ticker){loadCompany(ticker,false,true);showView('research');}
 function bindTickers(){document.querySelectorAll('[data-ticker]').forEach(el=>{el.onclick=()=>openCompany(el.dataset.ticker);if(el.getAttribute('role')==='button')el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCompany(el.dataset.ticker);}};});}
 function renderDigest(){const d=state.digest;if(!d)return;const signals=d.items.filter(i=>state.filter==='all'||(state.filter==='market'?['price','volume'].includes(i.category):i.category===state.filter));$('#signal-count').textContent=d.items.length;$('#overview').innerHTML=`<span><strong>${d.material_count}</strong> Material Alerts</span><span><strong>${d.items.filter(i=>['price','volume'].includes(i.category)).length}</strong> Market Moves</span><span><strong>${d.routine.length}</strong> Routine Filtered</span>`;$('#feed').innerHTML=signals.length?signals.map(card).join(''):`<div class="empty-state"><span class="empty-icon">${icon('check')}</span><h3>${state.filter==='all'?'Nothing new needs your attention.':'No matching signals in this window.'}</h3><p>${d.covered_count?'The feed stays quiet when saved data contains no matching triggers. Explore a longer window or research a company.':'Refresh your portfolio to begin tracking exchange filings and EOD moves.'}</p><button class="button secondary" id="longer-window">Explore last 7 days ${icon('arrow')}</button></div>`;$('#routine-count').textContent=d.routine.length;$('#routine-list').innerHTML=d.routine.length?d.routine.map(i=>`<div class="routine-row"><div><strong>${esc(i.ticker)} · ${esc(labels[i.category]||i.category.replaceAll('_',' '))}</strong>${esc(i.title)}</div><a href="${safeUrl(i.source_url)}" target="_blank" rel="noopener noreferrer">${icon('link')}</a></div>`).join(''):'<p class="muted">No lower-priority filings in this window.</p>';$('#watchlist').innerHTML=d.portfolio.map(c=>`<div class="watch-row" role="button" tabindex="0" data-ticker="${esc(c.ticker)}"><div><strong>${esc(c.ticker)}</strong><span class="watch-sector">${esc(c.sector)}</span></div><div class="watch-price">${number(c.close)}<span class="watch-change ${c.change<0?'negative':'positive'}">${c.change==null?'Not refreshed':`${c.change>0?'+':''}${number(c.change)}%`}</span></div></div>`).join('');$('#longer-window')?.addEventListener('click',()=>{$('#window-select').value='168';loadDigest();});const warnings=d.warnings.length?` · ${d.warnings.length} source gaps`:'';status('#digest-status',`Latest refresh ${d.refreshed_at?date(d.refreshed_at):'pending'} · ${d.covered_count}/${d.portfolio.length} companies covered${warnings}`);$('#price-threshold').value=d.settings.price_percent;$('#volume-threshold').value=d.settings.volume_multiple;bindTickers();}
 async function loadDigest(){const id=++state.digestRequest;try{const digest=await api(`/api/digest?hours=${$('#window-select').value}`);if(id!==state.digestRequest)return;state.digest=digest;renderDigest();}catch(e){if(id===state.digestRequest)status('#digest-status',e.message,true);}}
 $('#window-select').onchange=loadDigest;
 $('#digest-filters').onclick=e=>{const button=e.target.closest('[data-filter]');if(!button)return;state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(el=>el.classList.toggle('active',el===button));renderDigest();};
-$('#settings-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/preferences',{method:'PUT',body:JSON.stringify({price_percent:Number($('#price-threshold').value),volume_multiple:Number($('#volume-threshold').value)})});$('#settings-status').textContent='Saved. Applied immediately to cached EOD bars.';await loadDigest();toast('Alert preferences saved');}catch(err){$('#settings-status').textContent=err.message;}};
+$('#preferences-button').onclick=()=>{
+  if(state.digest){$('#price-threshold').value=state.digest.settings.price_percent;$('#volume-threshold').value=state.digest.settings.volume_multiple;}
+  $('#settings-status').textContent='Applied to saved market bars.';
+  $('#preferences-dialog').showModal();
+};
+$('#close-preferences').onclick=()=>$('#preferences-dialog').close();
+$('#preferences-dialog').addEventListener('click',event=>{
+  if(event.target!==event.currentTarget)return;
+  const bounds=event.currentTarget.getBoundingClientRect();
+  if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)event.currentTarget.close();
+});
+$('#settings-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/preferences',{method:'PUT',body:JSON.stringify({price_percent:Number($('#price-threshold').value),volume_multiple:Number($('#volume-threshold').value)})});$('#settings-status').textContent='Saved. Applied immediately to cached EOD bars.';await loadDigest();$('#preferences-dialog').close();toast('Alert preferences saved');}catch(err){$('#settings-status').textContent=err.message;}};
 $('#refresh-button').onclick=async()=>{const b=$('#refresh-button');b.disabled=true;b.innerHTML=`${icon('refresh')} Refreshing`;try{const job=await api('/api/refresh',{method:'POST',body:'{}'});status('#digest-status','Refreshing exchange filings and market data in the background…');await pollJob(job.id,()=>loadDigest());await loadDigest();toast('Portfolio refresh complete');}catch(e){status('#digest-status',e.message,true);}finally{b.disabled=false;b.innerHTML=`${icon('refresh')} Refresh`;}};
 function snapshotHtml(snapshot){if(!snapshot)return `<div class="panel snapshot-panel"><h2>Financial snapshot</h2><p class="muted">No saved financial table yet. Start research to fetch it in the background.</p></div>`;return `<div class="panel snapshot-panel"><div class="section-heading"><h2>Financial snapshot</h2><span class="pill results">${esc(snapshot.basis)}</span></div><p class="muted">${esc(snapshot.latest_period)} · ₹ crore · Standardized financials</p>${resultTable(snapshot)}<div class="snapshot-note"><details><summary class="source-button">Source & methodology</summary><p>${esc(snapshot.note)}</p></details><a class="text-button" href="${safeUrl(snapshot.source_url)}" target="_blank" rel="noopener noreferrer">Open financial table ${icon('link')}</a></div>${snapshot.history?.length?`<details class="source-list"><summary class="text-button">Last four quarters</summary><table class="snapshot-table"><thead><tr><th>Quarter</th><th>Revenue</th><th>PAT</th></tr></thead><tbody>${snapshot.history.slice(-4).map(q=>`<tr><td>${esc(q.label)}</td><td>${number(q.revenue)}</td><td>${number(q.pat)}</td></tr>`).join('')}</tbody></table></details>`:''}</div>`;}
 function citeButton(citation){const id=state.citations.push(citation)-1;return `<button class="source-button" data-cite="${id}">${citation.source_type==='standardized_table'?'Financial table':`Transcript · page ${citation.page??'—'}`} ${icon('link')}</button>`;}
@@ -114,13 +130,31 @@ function guidanceHtml(r) {
 function renderCompany(data) {
   state.company=data;state.citations=[];
   const r=data.research;
-  $('#research-content').innerHTML=`<div class="company-heading"><div class="company-identity"><div class="company-status-row"><span class="ticker-badge">${esc(data.ticker)}.NS</span><span class="analysis-status-badge ${r?'analysed':'unanalysed'}">${r?`Last analysed: ${date(r.generated_at)}`:'Not yet analysed'}</span></div><h2>${esc(data.name||data.ticker)}</h2><p class="subtitle">${esc(data.sector==='NSE-listed company'?'Listed company':data.sector||'Listed company')} · NSE</p></div><button class="button ${r?'secondary':'primary'} company-analysis-action" id="rerun-research">${r?`${icon('refresh')} Update analysis`:'Analyse now'}</button></div><div class="research-layout"><div>${guidanceHtml(r)}</div><aside>${snapshotHtml(data.snapshot)}${r?.documents?.length?`<details class="panel source-list"><summary class="text-button">Source library · ${r.documents.length} documents</summary>${r.documents.map(d=>`<a href="${safeUrl(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.kind.replaceAll('_',' '))} · ${esc(d.title.replace(/AI Summary|PPT|REC|from bse/g,'').trim().slice(0,55))} ${icon('link')}</a>`).join('')}</details>`:''}</aside></div>`;
+  $('#research-content').innerHTML=`<div class="company-heading"><div class="company-identity"><div class="company-status-row"><span class="ticker-badge">${esc(data.ticker)}.NS</span><span class="analysis-status-badge ${r?'analysed':'unanalysed'}">${r?`Last analysed: ${date(r.generated_at)}`:'Not yet analysed'}</span><button class="button ${r?'secondary':'primary'} company-analysis-action" id="rerun-research">${r?`${icon('refresh')} Update analysis`:'Analyse now'}</button></div><h2>${esc(data.name||data.ticker)}</h2><p class="subtitle">${esc(data.sector==='NSE-listed company'?'Listed company':data.sector||'Listed company')} · NSE</p></div></div><div class="research-stack">${businessHtml(data.business,{esc,date,citeButton})}${snapshotHtml(data.snapshot)}${trajectoryHtml(data.trajectory,{esc,number})}<section class="narrative-section"><div class="section-heading"><h2>Narrative vs. Numbers</h2></div>${guidanceHtml(r)}</section>${r?.documents?.length?`<details class="panel source-list"><summary class="text-button">Source library · ${r.documents.length} documents</summary>${r.documents.map(d=>`<a href="${safeUrl(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.kind.replaceAll('_',' '))} · ${esc(d.title.replace(/AI Summary|PPT|REC|from bse/g,'').trim().slice(0,55))} ${icon('link')}</a>`).join('')}</details>`:''}</div>`;
   $('#start-research')?.addEventListener('click',()=>startResearch(data.ticker));
   $('#rerun-research').onclick=()=>startResearch(data.ticker);
+  $('#refresh-business')?.addEventListener('click',()=>ensureBusiness(data.ticker,true));
   document.querySelectorAll('[data-cite]').forEach(b=>b.onclick=()=>showEvidence(state.citations[Number(b.dataset.cite)]));
   analysisProgress.select(data.ticker);analysisProgress.track(data.analysis_job);analysisProgress.syncButtons();
 }
-async function loadCompany(ticker,autoStart=false,recordSearch=false){ticker=ticker.trim().toUpperCase().replace(/\.NS$/,'');if(!/^[A-Z0-9][A-Z0-9&-]{0,24}$/.test(ticker)){status('#research-status','Enter an NSE symbol, for example INFY or DIXON.NS.',true);return;}tickerSearch.close();state.ticker=ticker;analysisProgress.select(ticker);$('#ticker-input').value=ticker;const id=++state.requestId;status('#research-status',`Loading saved ${ticker} intelligence…`);try{const data=await api(`/api/company/${encodeURIComponent(ticker)}`);if(id!==state.requestId)return;renderCompany(data);if(recordSearch)tickerSearch.remember(data);status('#research-status','');if(autoStart&&!data.snapshot&&!data.research)startResearch(ticker);}catch(e){if(id===state.requestId)status('#research-status',e.message,true);}}
+const businessLoads=new Set();
+async function ensureBusiness(ticker,refresh=false) {
+  if(businessLoads.has(ticker))return;
+  businessLoads.add(ticker);
+  const previousSaved=refresh&&state.company?.ticker===ticker?state.company.business?.generated_at:null;
+  const button=$('#refresh-business');if(button&&state.ticker===ticker){button.disabled=true;button.textContent='Refreshing company profile…';}
+  try {
+    await api(`/api/company/${encodeURIComponent(ticker)}/business${refresh?'?refresh=true':''}`,{method:'POST',body:'{}'});
+    for(let attempt=0;attempt<50;attempt++) {
+      const data=await api(`/api/company/${encodeURIComponent(ticker)}`);
+      if(data.business&&(!previousSaved||data.business.generated_at!==previousSaved)){if(state.ticker===ticker)renderCompany(data);break;}
+      await new Promise(resolve=>setTimeout(resolve,1000));
+    }
+  } catch {
+    if(state.ticker===ticker){const note=$('#business-progress');if(note)note.innerHTML=`<a class="source-button" href="https://www.screener.in/company/${encodeURIComponent(ticker)}/" target="_blank" rel="noopener noreferrer">View company profile ↗</a>`;}
+  } finally {businessLoads.delete(ticker);if(button?.isConnected){button.disabled=false;button.textContent='Refresh company profile';}}
+}
+async function loadCompany(ticker,autoStart=false,recordSearch=false){ticker=ticker.trim().toUpperCase().replace(/\.NS$/,'');if(!/^[A-Z0-9][A-Z0-9&-]{0,24}$/.test(ticker)){status('#research-status','Enter an NSE symbol, for example INFY or DIXON.NS.',true);return;}tickerSearch.close();state.ticker=ticker;analysisProgress.select(ticker);$('#ticker-input').value=ticker;const id=++state.requestId;status('#research-status',`Loading saved ${ticker} intelligence…`);try{const data=await api(`/api/company/${encodeURIComponent(ticker)}`);if(id!==state.requestId)return;renderCompany(data);if(!data.business)ensureBusiness(ticker);if(recordSearch)tickerSearch.remember(data);status('#research-status','');if(autoStart&&!data.snapshot&&!data.research)startResearch(ticker);}catch(e){if(id===state.requestId)status('#research-status',e.message,true);}}
 $('#research-form').onsubmit=e=>{e.preventDefault();loadCompany(tickerSearch.resolve(),true,true);};
 async function pollJob(id,onProgress){if(state.polling.has(id))return;state.polling.add(id);try{for(let attempt=0;attempt<240;attempt++){const job=await api(`/api/jobs/${id}`);await onProgress?.(job);if(job.status==='completed')return job;if(job.status==='failed')throw new Error(job.error||'Source processing failed. Saved results are preserved.');await new Promise(resolve=>setTimeout(resolve,1500));}throw new Error('Analysis is still running. You can return to the saved view.');}finally{state.polling.delete(id);}}
 async function startResearch(ticker) {

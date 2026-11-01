@@ -39,6 +39,11 @@ class FinancialSource:
             url = f"https://www.screener.in/company/{ticker}/{suffix}"
             try:
                 html = self.http.fetch(url, max_bytes=3_000_000)
+                from finn.sources.profile import CACHE, ProfileSource
+                try:
+                    self.store.put(CACHE, ticker, ProfileSource.parse(ticker, url, html))
+                except SourceError:
+                    pass
                 data = self.parse(ticker, url, html)
             except SourceError:
                 if suffix:

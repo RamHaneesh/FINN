@@ -3,7 +3,7 @@ import json
 import threading
 import logging
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
@@ -22,6 +22,8 @@ from finn.jobs.progress import JobProgress
 async def lifespan(app: FastAPI):
     app.state.pipeline = Pipeline(get_settings())
     app.state.symbols = SymbolDirectory(app.state.pipeline.store, app.state.pipeline.http)
+    app.state.profile_pending = set()
+    app.state.profile_lock = threading.Lock()
     def warm_directory():
         try:
             app.state.symbols.warm()
@@ -82,6 +84,8 @@ def company_view(ticker: str, request: Request):
         if data["snapshot"]:
             data["snapshot"].pop("annual", None)
             data["snapshot"]["history"] = data["snapshot"]["history"][-4:]
+        if data["business"]:
+            data["business"].pop("profile_text", None)
         data["analysis_job"] = job_progress(request).latest(data["ticker"])
         return data
     except ValueError as exc:
@@ -132,6 +136,33 @@ def start_research(body: ResearchRequest, request: Request):
     payload["max_calls"] = min(payload["max_calls"], request.app.state.pipeline.settings.finn_max_model_calls)
     job = request.app.state.pipeline.store.enqueue(body.ticker, payload)
     return job_progress(request).present(request.app.state.pipeline.store.job(job["id"]), include_result=False)
+
+
+@app.post("/api/company/{ticker}/business", status_code=202)
+def start_business(ticker: str, request: Request, background_tasks: BackgroundTasks, refresh: bool = False):
+    try:
+        ticker = normalize_ticker(ticker)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    store = request.app.state.pipeline.store
+    from finn.sources.profile import CACHE
+    saved = store.get(CACHE, ticker)
+    if saved and not refresh:
+        return {"status": "cached", "business": saved}
+    # Public HTML profiles have their own short task; never queue behind transcript research.
+    with request.app.state.profile_lock:
+        if ticker in request.app.state.profile_pending:
+            return {"status": "loading"}
+        request.app.state.profile_pending.add(ticker)
+    def load_profile():
+        try:
+            from finn.services.business import build_business
+            build_business(request.app.state.pipeline, ticker, refresh=refresh)
+        finally:
+            with request.app.state.profile_lock:
+                request.app.state.profile_pending.discard(ticker)
+    background_tasks.add_task(load_profile)
+    return {"status": "loading"}
 
 
 @app.get("/api/research/active")

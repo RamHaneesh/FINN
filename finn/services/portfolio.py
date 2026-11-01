@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 import json
 from zoneinfo import ZoneInfo
 
@@ -12,6 +12,8 @@ from finn.signals.classifier import CATEGORIES, classify
 from finn.signals.rules import market_attention
 from finn.sources.financials import FinancialSource
 from finn.services.filing_display import management_fields
+from finn.services.trajectory import cached_trajectory
+from finn.sources.profile import CACHE as PROFILE_CACHE
 
 
 class PortfolioService:
@@ -25,6 +27,7 @@ class PortfolioService:
     def company(self, ticker):
         ticker = normalize_ticker(ticker)
         snapshot = self.store.get("financials-v1", ticker)
+        business = self.store.get(PROFILE_CACHE, ticker)
         research = self.store.get("research-v1", ticker)
         if research:
             statements = [qualify_narrative(Narrative.model_validate(item)) for item in research["narratives"]]
@@ -33,7 +36,8 @@ class PortfolioService:
             research["comparisons"] = [compare(item, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date()).model_dump(mode="json") for item in statements]
             research["guidance_review"] = guidance_review(statements, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date(), snapshot)
         portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
-        return {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else ticker, "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research}
+        return {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else (business or {}).get("name", ticker), "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research,
+                "trajectory": cached_trajectory(self.store, ticker, snapshot), "business": business}
 
     def digest(self, hours=24):
         settings = self.preferences()
@@ -89,6 +93,14 @@ class PortfolioService:
                                 primary["metrics"][index] = dict(standardized["metrics"][index], source_type="standardized_table")
                         primary["source_type"] = "mixed" if any(metric["source_type"] == "standardized_table" for metric in primary["metrics"]) else "primary_filing"
                 item["financials"] = primary or standardized
+                annual = (snapshot or {}).get("annual", [])
+                if item["financials"] and annual:
+                    try:
+                        month = datetime.strptime(item["financials"]["latest_period"], "%b %Y").month
+                        year_end_month = date.fromisoformat(annual[-1]["end"]).month
+                        item["fiscal_quarter"] = ((month-year_end_month-1) % 12)//3+1
+                    except (ValueError, KeyError):
+                        pass
                 if item["financials"]:
                     item["title"] = f"{item['financials']['latest_period']} results filed"
                 origin = " Headline values combine filing extraction with marked standardized values." if primary and primary["source_type"] == "mixed" else " Headline values from the original filing." if primary else " Headline values use the saved standardized table; open the filing for primary evidence."

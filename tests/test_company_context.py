@@ -1,0 +1,117 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+
+from finn.sources.profile import CACHE, ProfileSource
+from finn.services.trajectory import cached_trajectory, calculate
+from finn.storage import Store
+
+
+def snapshot():
+    return {'basis': 'consolidated', 'source_url': 'https://www.screener.in/company/TEST/#quarters', 'annual': [
+        {'label': 'Mar 2024', 'start': '2023-04-01', 'end': '2024-03-31', 'revenue': 100, 'pat': -10, 'ebitda': 20, 'ebitda_derived': True},
+        {'label': 'Mar 2025', 'start': '2024-04-01', 'end': '2025-03-31', 'revenue': 110, 'pat': None, 'ebitda': None},
+        {'label': 'Mar 2026', 'start': '2025-04-01', 'end': '2026-03-31', 'revenue': 121, 'pat': 5, 'ebitda': 30.25}]}
+
+
+class CompanyContext(unittest.TestCase):
+    def test_table_uses_preceding_year_for_first_yoy_and_true_five_year_cagr(self):
+        data = snapshot()
+        data['annual'] = [{'label': f'Mar {year}', 'start': f'{year-1}-04-01', 'end': f'{year}-03-31',
+                           'revenue': 100*1.1**(year-2021), 'pat': 10*1.1**(year-2021), 'ebitda': 20*1.1**(year-2021)} for year in range(2021, 2027)]
+        result = calculate(data)
+        self.assertEqual(len(result['rows']), 5)
+        self.assertEqual(result['rows'][0]['year'], 'FY2022')
+        self.assertEqual(result['rows'][0]['revenue_yoy'], 10)
+        self.assertEqual(result['summary']['revenue']['years'], 5)
+        self.assertAlmostEqual(result['summary']['revenue']['cagr'], 10, places=1)
+        self.assertEqual(result['summary']['revenue']['start'], 'Mar 2021')
+
+    def test_annual_cagr_margin_and_missing_loss_values(self):
+        result = calculate(snapshot())
+        revenue, pat, margin = result['series']
+        self.assertAlmostEqual(revenue['cagr'], 10, places=1)
+        self.assertIsNone(pat['cagr'])  # Loss-to-profit is not a valid CAGR.
+        self.assertIsNone(pat['points'][1]['y'])
+        self.assertEqual(margin['points'][-1]['value'], 25)
+        self.assertEqual(margin['change'], 5)
+        self.assertTrue(margin['derived'])
+
+    def test_cache_reused_and_invalidated_by_new_financial_values(self):
+        with TemporaryDirectory() as tmp:
+            store = Store(Path(tmp))
+            data = snapshot()
+            first = cached_trajectory(store, 'TEST', data)
+            self.assertEqual(first, cached_trajectory(store, 'TEST', data))
+            data['annual'][-1]['revenue'] = 150
+            self.assertNotEqual(first['input_key'], cached_trajectory(store, 'TEST', data)['input_key'])
+
+    def test_profile_copies_description_and_dated_mix_not_market_share(self):
+        html = b'''<h1>Example Manufacturing Ltd</h1><div class="company-profile">
+        <div class="about"><p>Example Ltd. manufactures electronic products.<sup>[1]</sup> It sells the Alpha brand. A third sentence.</p></div>
+        <div class="commentary"><p><strong>Business Segments:</strong><br>
+        <strong>a) Mobile (80% in FY26 vs 70% in FY25)</strong><br>
+        <strong>b) Lighting (20% in FY26 vs 30% in FY25)</strong><br>
+        <strong>35% market share in FY26</strong></p></div></div>'''
+        profile = ProfileSource.parse('TEST', 'https://www.screener.in/company/TEST/', html)
+        self.assertEqual(profile['description'], 'Example Ltd. manufactures electronic products. It sells the Alpha brand.')
+        self.assertEqual(profile['revenue_mix'], ['Mobile (80% in FY26 vs 70% in FY25)', 'Lighting (20% in FY26 vs 30% in FY25)'])
+        self.assertEqual(profile['source_type'], 'company_profile')
+
+    def test_profile_cache_never_uses_transcripts_or_model(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from finn.services.business import build_business
+        with TemporaryDirectory() as tmp:
+            store = Store(Path(tmp))
+            saved = {'status': 'ready', 'description': 'Saved public company profile.'}
+            store.put(CACHE, 'TEST', saved)
+            pipeline = SimpleNamespace(store=store, http=Mock(), discover=Mock(), documents=Mock())
+            with patch('finn.models.Gemini') as model:
+                self.assertEqual(build_business(pipeline, 'TEST'), saved)
+                model.assert_not_called()
+            pipeline.http.fetch.assert_not_called()
+            pipeline.discover.assert_not_called()
+            pipeline.documents.ingest.assert_not_called()
+
+    def test_old_transcript_business_cache_is_ignored(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from finn.services.business import build_business
+        with TemporaryDirectory() as tmp:
+            store = Store(Path(tmp))
+            store.put('business-v1', 'TEST', {'status': 'ready', 'description': 'Old transcript quote'})
+            http = Mock()
+            http.fetch.return_value = b'<h1>Test</h1><div class="company-profile"><div class="about">Test manufactures pumps. It serves industrial clients.</div></div>'
+            result = build_business(SimpleNamespace(store=store, http=http), 'TEST')
+            self.assertEqual(result['description'], 'Test manufactures pumps. It serves industrial clients.')
+            self.assertEqual(http.fetch.call_count, 1)
+
+    def test_profile_load_does_not_wait_for_queued_narrative_job(self):
+        import asyncio
+        import httpx
+        from unittest.mock import patch
+        from finn.api.app import app
+        from finn.config import Settings
+
+        async def exercise(root):
+            with patch('finn.api.app.get_settings', return_value=Settings(_env_file=None, finn_data_dir=root)):
+                async with app.router.lifespan_context(app):
+                    job = app.state.pipeline.store.enqueue('TEST', {'max_calls': 0})
+                    html = b'<h1>Test Ltd</h1><div class="company-profile"><div class="about">Test manufactures pumps. It serves industrial clients.</div></div>'
+                    with patch.object(app.state.pipeline.http, 'fetch', return_value=html), patch.object(app.state.pipeline, 'discover') as discover:
+                        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                            response = await client.post('/api/company/TEST/business')
+                            self.assertEqual(response.status_code, 202)
+                            data = (await client.get('/api/company/TEST')).json()
+                            self.assertEqual(data['business']['status'], 'ready')
+                            self.assertEqual(data['name'], 'Test Ltd')
+                            self.assertEqual(app.state.pipeline.store.job(job['id'])['status'], 'queued')
+                            self.assertEqual((await client.post('/api/company/TEST/business')).json()['status'], 'cached')
+                    discover.assert_not_called()
+        with TemporaryDirectory() as tmp:
+            asyncio.run(exercise(Path(tmp)))
+
+
+if __name__ == '__main__':
+    unittest.main()
