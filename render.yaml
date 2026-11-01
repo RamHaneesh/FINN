@@ -4,6 +4,7 @@ services:
   - type: web
     name: finn
     runtime: python
+    region: singapore
     plan: free
     numInstances: 1
     buildCommand: pip install -r requirements.txt

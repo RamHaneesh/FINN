@@ -4,6 +4,10 @@ FINN is a mobile-first investment intelligence prototype for the **ENAM Holdings
 
 FastAPI serves the responsive interface and API. Saved company views load from local storage; PDF processing and Gemini extraction run in the background.
 
+**Public demo:** [Open FINN](https://finn-investment-agent-f3ra.onrender.com/) · [API health](https://finn-investment-agent-f3ra.onrender.com/api/health)
+
+The complete app runs as one Render Free service. After inactivity, the first visit may take about a minute to wake the service. Runtime additions to the cache are temporary; the bundled 35-company data is restored on startup.
+
 **Running demo:** [Open FINN on this computer](http://127.0.0.1:8000/) · [Open FINN on a phone on the same Wi-Fi](http://172.23.70.196:8000/). The LAN address was verified on 1 November 2026 and can change; see [Start the app](#start-the-app). These local links require the server to be running; a public deployment URL has not been configured.
 
 ## Feature overview

@@ -2,6 +2,15 @@
 
 FastAPI serves FINN's mobile interface, API, cached data and one embedded research worker from a single Render web service. No Vercel project or frontend build is required.
 
+## Live service
+
+- Public URL: [FINN](https://finn-investment-agent-f3ra.onrender.com/)
+- Health: [API and worker status](https://finn-investment-agent-f3ra.onrender.com/api/health)
+- Render service: `finn-investment-agent`, Singapore, Free plan.
+- First deployed source: `2e84765`.
+
+Verified on 1 November 2026: the public health endpoint returned HTTP 200 with the worker available; INFY and DMART APIs each returned a business profile, financial snapshot, five trajectory rows and saved research. A 390 × 844 browser check confirmed the 35-company digest, Push-to-Pull deep linking, DMART search, correct section order and no horizontal overflow or browser errors. The deployment used the existing cached evidence; these checks did not perform a new Gemini extraction or establish a phone-network latency guarantee.
+
 ## Service settings
 
 The repository's `render.yaml` describes the deployment. The same settings can be entered manually:
