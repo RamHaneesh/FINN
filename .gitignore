@@ -4,6 +4,16 @@
 !.env.example
 .venv/
 __pycache__/
+*.pyc
+
+# Development scratch space and temporary download staging
+tmp/
+temp/
+scratch/
+data/staging/
+data/runtime/
+data/downloads/tmp/
+data/documents/*.tmp
 
 # Temporary logs and SQLite transient journals/locks (not the database)
 *.log
@@ -13,8 +23,5 @@ __pycache__/
 
 # Local screenshots
 /screenshots/
-/tmp/**/*.png
-/tmp/**/*.jpg
-/tmp/**/*.jpeg
 
 # Intentionally tracked: data/finn.sqlite3, cached JSON, source PDFs and project docs.

@@ -52,7 +52,9 @@ def main():
             'Times are measurements on this machine, not a phone/Wi-Fi SLA.',
             'Legacy labels: ZOMATO uses ETERNAL source data; TATAMOTORS uses TMPV (passenger vehicles) source data. Historical figures may span reorganisations. Source links and names are preserved in the app.',
             '[NSE Eternal announcement](https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol=ETERNAL) · [NSE Tata Motors symbol-change circular](https://nsearchives.nseindia.com/content/circulars/FAOP70882.pdf)']
-    Path('COVERAGE_STATUS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    destination = Path('docs/coverage.md')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text('\n'.join(lines)+'\n',encoding='utf-8')
     print(json.dumps({key:value for key,value in result.items() if key!='rows'}))
 
 
