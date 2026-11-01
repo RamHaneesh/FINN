@@ -4,11 +4,13 @@ import time
 from finn.models import ModelError
 from finn.pipeline import Pipeline
 from finn.sources.http import SourceError
+from finn.jobs.progress import heartbeat
 
 logger = logging.getLogger(__name__)
 
 
 def run_once(pipeline: Pipeline) -> bool:
+    heartbeat(pipeline)
     job = pipeline.store.claim()
     if job is None:
         return False
@@ -16,7 +18,9 @@ def run_once(pipeline: Pipeline) -> bool:
     try:
         payload = dict(job["payload"])
         kind = payload.pop("_kind", "research")
-        progress = lambda stage: pipeline.store.update_job(job_id, stage)
+        def progress(stage):
+            heartbeat(pipeline, job_id)
+            pipeline.store.update_job(job_id, stage)
         if kind == "refresh":
             from finn.services.portfolio import PortfolioService
             result = PortfolioService(pipeline).refresh(progress)

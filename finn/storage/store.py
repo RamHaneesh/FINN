@@ -32,6 +32,10 @@ class Store:
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS one_active_job ON jobs(request_key)
                     WHERE status IN ('queued', 'running');
+                CREATE TABLE IF NOT EXISTS job_tracking (
+                    job_id TEXT PRIMARY KEY, started_at TEXT NOT NULL,
+                    phase_started_at TEXT NOT NULL, timings TEXT NOT NULL
+                );
             """)
 
     @contextmanager
@@ -64,6 +68,11 @@ class Store:
         key = fingerprint({"ticker": ticker, **payload})
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            if payload.get("_kind", "research") == "research":
+                active = db.execute("SELECT * FROM jobs WHERE ticker=? AND status IN ('queued','running') ORDER BY created_at", (ticker,)).fetchall()
+                for row in active:
+                    if json.loads(row["payload"]).get("_kind", "research") == "research":
+                        return self._job(row)
             existing = db.execute("SELECT * FROM jobs WHERE request_key=? AND status IN ('queued','running')", (key,)).fetchone()
             if existing:
                 return self._job(existing)
@@ -82,17 +91,39 @@ class Store:
             if not row:
                 return None
             db.execute("UPDATE jobs SET status='running',stage='starting',updated_at=? WHERE id=?", (utc_now(), row["id"]))
+            now = utc_now()
+            db.execute("INSERT OR REPLACE INTO job_tracking VALUES (?,?,?,?)", (row["id"], now, now, "{}"))
             row = db.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
         return self._job(row)
 
     def update_job(self, job_id: str, stage: str, status: str = "running", result=None, error=None):
         with self.connection() as db:
-            db.execute("UPDATE jobs SET stage=?,status=?,updated_at=?,result=?,error=? WHERE id=?", (stage, status, utc_now(), json.dumps(result) if result is not None else None, error, job_id))
+            now = utc_now()
+            previous = db.execute("SELECT stage FROM jobs WHERE id=?", (job_id,)).fetchone()
+            tracking = db.execute("SELECT * FROM job_tracking WHERE job_id=?", (job_id,)).fetchone()
+            if tracking and previous and previous["stage"].split(":")[0] != stage.split(":")[0]:
+                timings = json.loads(tracking["timings"])
+                elapsed = (datetime.fromisoformat(now) - datetime.fromisoformat(tracking["phase_started_at"])).total_seconds()
+                phase = previous["stage"].split(":")[0]
+                timings[phase] = round(timings.get(phase, 0) + elapsed, 2)
+                db.execute("UPDATE job_tracking SET phase_started_at=?,timings=? WHERE job_id=?", (now, json.dumps(timings), job_id))
+            db.execute("UPDATE jobs SET stage=?,status=?,updated_at=?,result=?,error=? WHERE id=?", (stage, status, now, json.dumps(result) if result is not None else None, error, job_id))
 
     def job(self, job_id: str) -> dict | None:
         with self.connection() as db:
             row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-        return self._job(row) if row else None
+            tracking = db.execute("SELECT * FROM job_tracking WHERE job_id=?", (job_id,)).fetchone()
+        if row is None:
+            return None
+        job = self._job(row)
+        if tracking:
+            job.update(started_at=tracking["started_at"], phase_started_at=tracking["phase_started_at"], stage_timings=json.loads(tracking["timings"]))
+        return job
+
+    def recent_jobs(self, ticker=None, limit=40):
+        with self.connection() as db:
+            rows = db.execute("SELECT id FROM jobs " + ("WHERE ticker=? " if ticker else "") + "ORDER BY created_at DESC LIMIT ?", (ticker, limit) if ticker else (limit,)).fetchall()
+        return [self.job(row["id"]) for row in rows]
 
     @staticmethod
     def _job(row) -> dict:

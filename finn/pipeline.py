@@ -4,9 +4,10 @@ from itertools import zip_longest
 from zoneinfo import ZoneInfo
 
 from finn.analysis import compare
+from finn.analysis.guidance import review_period, select_transcripts
 from finn.config import Settings
 from finn.documents import DocumentService, chunks
-from finn.domain import DocumentKind, DocumentLink, ResearchReport, fingerprint, normalize_ticker, utc_now
+from finn.domain import DocumentKind, DocumentLink, FinancialFact, Narrative, ResearchReport, fingerprint, normalize_ticker, utc_now
 from finn.extraction import Extractor
 from finn.models import BudgetExceeded, Gemini, ModelError
 from finn.signals import announcement_attention, market_attention
@@ -40,13 +41,16 @@ class Pipeline:
             pass  # Transcript research can still proceed; the missing snapshot stays visible.
         progress("discovering_transcripts")
         links = self.discover(ticker, refresh=refresh)
-        # A fifth call allows one off-cycle transcript without losing the prior-year target.
-        selected = [link for link in links if link.kind == DocumentKind.TRANSCRIPT][:5]
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        previous = self.store.get("research-v1", ticker) or {}
+        previous_facts = [FinancialFact.model_validate(item) for item in previous.get("facts", [])]
+        period = review_period(today, snapshot, previous_facts)
+        selected = select_transcripts(links, period, today, max_documents)
         warnings = ["Transcript analysis is primary-source grounded. Financial snapshot/derived actuals use separately labeled standardized Screener tables; they are not direct filing extraction. Annual reports remain linked in the source library and are not parsed on the interactive path."]
-        selected = selected[:max_documents]
         progress("parsing")
         parsed = []
-        for link in selected:
+        for index, link in enumerate(selected):
+            progress(f"parsing:{index + 1}:{len(selected)}")
             try:
                 parsed.append(self.documents.ingest(link, refresh=refresh))
             except Exception as exc:
@@ -55,8 +59,10 @@ class Pipeline:
             raise SourceError("No usable primary PDFs were retrieved; inspect discovery links or source access")
         model = Gemini(self.settings, self.store, min(max_calls if max_calls is not None else self.settings.finn_max_model_calls, self.settings.finn_max_model_calls))
         extractor = Extractor(model)
-        narratives = {}
+        # Preserve validated older commitments and their outcomes across incremental runs.
+        narratives = {fingerprint(item): Narrative.model_validate(item) for item in previous.get("narratives", [])}
         facts = {fingerprint(fact.model_dump(mode="json")): fact for fact in FinancialSource.facts(snapshot)} if snapshot else {}
+        facts.update({fingerprint(fact.model_dump(mode="json")): fact for fact in previous_facts if fact.citation.source_type == "pdf"})
         batches = [chunks(document, self.settings.finn_chunk_chars) for document in parsed]
         # Annual reports are large: prioritize sections likely to hold audited context,
         # while preserving the full chunk count and explicit partial-coverage warning.
@@ -71,6 +77,7 @@ class Pipeline:
                 if pages is None:
                     continue
                 try:
+                    progress(f"extracting:{min(processed + 1, max(1, model.max_calls))}:{max(1, min(total, model.max_calls))}")
                     extraction, rejected = extractor.extract(document, pages)
                     warnings.extend(rejected)
                     processed += 1
@@ -94,10 +101,13 @@ class Pipeline:
         if not facts:
             warnings.append("No validated actual financial facts extracted; comparisons may be unavailable.")
         progress("comparing")
-        today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
         facts = list(facts.values())
         narratives = list(narratives.values())
-        report = ResearchReport(ticker=ticker, generated_at=utc_now(), model=self.settings.gemini_model, documents=[document.source for document in parsed] + [link for link in links if link.kind == DocumentKind.ANNUAL_REPORT][:1], narratives=narratives, facts=facts, comparisons=[compare(statement, facts, today) for statement in narratives], warnings=list(dict.fromkeys(warnings)), model_calls=model.calls, cache_hits=model.cache_hits, chunks_total=total, chunks_processed=processed, coverage="processed" if processed == total and len(parsed) == len(selected) else "partial")
+        sources = {item["url"]: DocumentLink.model_validate(item) for item in previous.get("documents", [])}
+        sources.update({document.source.url: document.source for document in parsed})
+        for link in [item for item in links if item.kind == DocumentKind.ANNUAL_REPORT][:1]:
+            sources[link.url] = link
+        report = ResearchReport(ticker=ticker, generated_at=utc_now(), model=self.settings.gemini_model, documents=list(sources.values()), narratives=narratives, facts=facts, comparisons=[compare(statement, facts, today) for statement in narratives], warnings=list(dict.fromkeys(warnings)), model_calls=model.calls, cache_hits=model.cache_hits, chunks_total=total, chunks_processed=processed, coverage="processed" if processed == total and len(parsed) == len(selected) else "partial")
         self.store.put("research-v1", ticker, report.model_dump(mode="json"))
         progress("complete")
         return report

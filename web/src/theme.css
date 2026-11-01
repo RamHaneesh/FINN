@@ -1,0 +1,83 @@
+/* FINN institutional palette. Loaded last to unify both views. */
+:root{--ink:#0F172A;--muted:#64748B;--line:#E2E8F0;--bg:#F8FAFC;--red:#B91C1C;--positive:#047857;--green:#0F5132}
+body{background:#F8FAFC;color:#334155}
+h1,h2,h3,h4,.ticker-badge,.company-label,.brand,.mobile-brand{color:#0F172A;font-weight:700}
+.subtitle,.muted,.card-meta,.comparison-date,.status-line,.review-subtitle,.source-note,.cached-label,.app-footer,.filing-data-source,.watch-sector,.comparison-label{color:#64748B}
+.quote,.management-commentary blockquote,.signal-card p,.guidance-context-item p{color:#334155}
+.signal-card,.panel,.snapshot-panel,.guidance-review,.comparison-card,.active-guidance,.active-guidance-card,.management-commentary,.guidance-context,.routine-panel,.overview,.research-prompt,.search-box{background:#FFF;border:1px solid #E2E8F0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.card-footer,.comparison-explanation,.snapshot-note,.source-list,.guidance-context-item,.management-commentary article{border-color:#E2E8F0}
+.card-footer{background:#FFF;color:#64748B}
+.signal-card h3,.management-fields dd,.overview strong{color:#0F172A;font-weight:700}
+.overview>span,.market-detail,.market-detail strong,.source-button,.text-button{color:#334155}
+.results-table,.snapshot-table{color:#334155;font-variant-numeric:tabular-nums}
+.results-table th,.snapshot-table th{color:#64748B;font-weight:600}
+.results-table td:not(:first-child),.snapshot-table td:not(:first-child){font-weight:700;color:#0F172A}
+.pill{font-weight:700;border:1px solid #E2E8F0;background:#F1F5F9;color:#475569}
+.pill.badge-amber{background:#FEF3C7;color:#B45309;border-color:#FCD34D}
+.pill.badge-blue,.pill.results{background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE}
+.pill.badge-purple{background:#F5F3FF;color:#6D28D9;border-color:#DDD6FE}
+.pill.badge-crimson,.pill.missed{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}
+.pill.badge-emerald,.pill.met{background:#ECFDF5;color:#047857;border-color:#A7F3D0}
+.pill.badge-neutral{background:#F1F5F9;color:#334155;border-color:#CBD5E1}
+.delta{background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-weight:700}
+.delta.negative{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}
+.delta.neutral{background:#F1F5F9;color:#64748B;border-color:#E2E8F0}
+.filter,.quick-tickers button,.recent-searches button{background:#FFF;border-color:#E2E8F0;color:#334155}
+.filter.active,.nav-button.active{background:#ECFDF5;color:#047857;border-color:#A7F3D0;font-weight:700}
+.company-heading h2{font-weight:700}.snapshot-panel h2,.guidance-review h2,.active-guidance h2,.management-commentary h2{color:#0F172A;font-weight:700}
+.comparison-card.verified-comparison{padding:16px;margin-top:12px;overflow:hidden}
+.comparison-hero-heading{display:flex;align-items:flex-start;gap:10px}
+.comparison-hero-heading h3{margin:0;font-size:16px;line-height:1.5;color:#0F172A;font-weight:700;flex:1;min-width:0}
+.comparison-hero-heading .pill{margin-top:1px;white-space:nowrap;letter-spacing:.5px}
+.comparison-date{font-size:11px;margin:8px 0 16px}
+.comparison-panels{display:grid;grid-template-columns:1fr;gap:20px}
+.comparison-panel{min-width:0;width:100%}
+.comparison-panel .comparison-label{font-size:10px;font-weight:700;letter-spacing:.8px;margin-bottom:5px}
+.comparison-panel .target-number,.verified-comparison .target-number{font:700 24px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0F172A;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.evidence-inset{margin:12px 0 8px;padding:12px 14px;font-size:13px;line-height:1.7;color:#334155;background:#F8FAFC;border-left:3px solid #94A3B8;border-radius:0 4px 4px 0;overflow-wrap:anywhere}
+.delivery-met .delivery-quote{background:#ECFDF5;border-left-color:#059669}
+.delivery-met .target-number{color:#047857}
+.delivery-missed .delivery-quote{background:#FEF2F2;border-left-color:#DC2626}
+.delivery-missed .target-number{color:#B91C1C}
+.comparison-explanation{color:#334155;background:#F8FAFC;font-size:11px;margin-top:16px}
+.active-guidance-card{padding:16px;background:#FFF;border-color:#E2E8F0}
+.management-commentary{border-left:3px solid #0F5132}
+.management-commentary article .card-meta{color:#64748B}
+.review-score{background:#F8FAFC;color:#334155;border-color:#E2E8F0}
+.guidance-revisions{background:#F8FAFC;color:#334155;border-color:#E2E8F0}
+.guidance-revisions summary,.guidance-coverage,.guidance-coverage strong{color:#64748B}
+.topbar{background:#FFF;border-color:#E2E8F0}
+.mobile-nav{background:#FFF;border-top:1px solid #E2E8F0;box-shadow:0 -1px 3px rgba(0,0,0,.03)}
+.mobile-nav button{color:#475569;font-weight:600}.mobile-nav button.active{color:#047857;background:#ECFDF5;font-weight:700}.mobile-nav svg{stroke-width:2}
+.search-box input{color:#0F172A}.search-box input::placeholder{color:#64748B}
+.snapshot-note .muted,.quiet-empty,.revision-row,.active-source>span,.recent-searches>span,.quick-tickers>span{color:#64748B}
+@media(max-width:640px){.comparison-card.verified-comparison,.active-guidance-card{padding:14px}.comparison-hero-heading h3{font-size:15px}.evidence-inset{padding:11px 12px;font-size:13px}.comparison-panel .target-number,.verified-comparison .target-number{font-size:24px}.comparison-panels{gap:18px}}
+
+.guidance-review .comparison-card{box-shadow:0 1px 3px rgba(0,0,0,.05)}
+
+/* Shared typography across Push, Pull, search, and financial evidence. */
+body,input,button,select,textarea{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  letter-spacing:-0.011em;
+  font-feature-settings:"tnum" 1,"cv05" 1;
+  font-variant-numeric:tabular-nums;
+}
+h1,h2,h3,.brand-logo,.brand,.brand-mark,.mobile-brand,.ticker-badge{
+  font-family:'Plus Jakarta Sans','Inter',-apple-system,sans-serif;
+  letter-spacing:-0.025em;
+}
+.financial-table,.metric-value,.delta-badge,table td,table th,
+.results-table,.snapshot-table,.delta,.target-number,.active-target strong,
+.comparison-panel .target-number,.verified-comparison .target-number,
+.watch-price,.stat-value,.overview strong,.market-detail,.analysis-timing{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-feature-settings:"tnum" 1,"cv05" 1;
+  font-variant-numeric:tabular-nums;
+}
+.suggestion-symbol{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-feature-settings:"tnum" 1,"cv05" 1;
+  font-variant-numeric:tabular-nums;
+}

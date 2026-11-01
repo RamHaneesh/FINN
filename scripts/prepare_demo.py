@@ -28,7 +28,7 @@ def main():
         list(pool.map(warm, service.companies))
     for ticker in args.research:
         try:
-            report = pipeline.research(ticker, max_documents=5, max_calls=args.max_calls, progress=lambda stage: print(f"{ticker}: {stage}", flush=True))
+            report = pipeline.research(ticker, max_documents=6, max_calls=args.max_calls, progress=lambda stage: print(f"{ticker}: {stage}", flush=True))
             print(f"{ticker}: {len(report.comparisons)} comparisons, {report.model_calls} model calls, coverage={report.coverage}", flush=True)
         except Exception as exc:
             print(f"{ticker}: research failed ({type(exc).__name__}); snapshot remains usable", flush=True)

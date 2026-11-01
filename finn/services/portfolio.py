@@ -6,10 +6,12 @@ from finn.config import ROOT
 from finn.domain import Announcement, PriceBar, normalize_ticker
 from finn.domain import Narrative, FinancialFact
 from finn.analysis import compare
+from finn.analysis.guidance import guidance_review
 from finn.extraction.extractor import qualify_narrative
 from finn.signals.classifier import CATEGORIES, classify
 from finn.signals.rules import market_attention
 from finn.sources.financials import FinancialSource
+from finn.services.filing_display import management_fields
 
 
 class PortfolioService:
@@ -29,6 +31,7 @@ class PortfolioService:
             facts = [FinancialFact.model_validate(item) for item in research["facts"]]
             research["narratives"] = [item.model_dump(mode="json") for item in statements]
             research["comparisons"] = [compare(item, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date()).model_dump(mode="json") for item in statements]
+            research["guidance_review"] = guidance_review(statements, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date(), snapshot)
         portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
         return {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else ticker, "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research}
 
@@ -57,6 +60,11 @@ class PortfolioService:
                 for item in market_attention(ticker, bars, settings["price_percent"], settings["volume_multiple"]):
                     data = item.model_dump(mode="json")
                     data.update(category=item.kind, priority="high", occurred_at=datetime.combine(last.date, time(16), tzinfo=ZoneInfo("Asia/Kolkata")).isoformat())
+                    baseline = sum(bar.volume for bar in bars[-21:-1]) / 20
+                    data["market"] = {"volume": last.volume, "average_volume": baseline,
+                                      "multiple": last.volume / baseline if baseline else None,
+                                      "close": last.close, "previous_close": previous.close,
+                                      "change_percent": (last.close / previous.close - 1) * 100}
                     # Latest EOD signals remain active until the next saved session.
                     data["reason"] += " Active for the latest saved trading session."
                     items.append(data)
@@ -66,6 +74,8 @@ class PortfolioService:
                 continue
             classification = classify(event.subject, event.description)
             item = {**classification, "item_id": event.event_id, "ticker": event.ticker, "title": event.subject, "reason": event.description or classification["reason"], "occurred_at": event.published_at.isoformat(), "source_url": event.source_url}
+            if classification["category"] == "management_change":
+                item["management"] = management_fields(event.subject, event.description)
             if classification["category"] == "results" and classification["priority"] == "high":
                 primary = self.store.get("results-headlines-v1", event.event_id)
                 snapshot = self.store.get("financials-v1", event.ticker)

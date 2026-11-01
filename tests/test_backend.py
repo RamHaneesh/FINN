@@ -29,6 +29,15 @@ def actual(**changes):
     return FinancialFact(**values)
 
 
+class FilingDisplay(unittest.TestCase):
+    def test_management_fields_require_named_action_and_role(self):
+        from finn.services.filing_display import management_fields
+        self.assertEqual(management_fields('Appointment', 'Appointment of Mr. Rajesh Kumar as Chief Financial Officer'),
+                         {'person': 'Rajesh Kumar', 'role': 'Chief Financial Officer', 'action': 'Joined'})
+        self.assertEqual(management_fields('Resignation', 'Resignation of Ms. Anita Rao as Company Secretary')['action'], 'Resigned')
+        self.assertIsNone(management_fields('Change in Management', 'Company has informed the Exchange about change in Management'))
+
+
 class Comparisons(unittest.TestCase):
     as_of = date(2026, 10, 31)
 
@@ -56,6 +65,33 @@ class Comparisons(unittest.TestCase):
 
     def test_conflicting_actuals_require_review(self):
         self.assertEqual(compare(statement(), [actual(value=12), actual(value=16)], self.as_of).status, "Cannot compare")
+
+    def test_prior_year_active_and_context_are_separated(self):
+        from finn.analysis.guidance import guidance_review
+        future = statement(period_start=date(2026,4,1), period_end=date(2027,3,31), stated_on=date(2026,4,20))
+        vague = statement(narrative_type="aspiration")
+        review = guidance_review([statement(), future, vague], [actual()], self.as_of)
+        self.assertEqual(review["period"]["label"], "FY2026")
+        self.assertEqual([item["status"] for item in review["completed"]], ["Missed"])
+        self.assertEqual(len(review["active"]), 1)
+        self.assertEqual(len(review["context"]), 1)
+
+    def test_revised_historical_targets_keep_both_verdicts(self):
+        from finn.analysis.guidance import guidance_review
+        revised = statement(lower=12, upper=14, stated_on=date(2026,1,15))
+        review = guidance_review([statement(), revised], [actual()], self.as_of)
+        self.assertEqual({item["status"] for item in review["completed"]}, {"Met", "Missed"})
+
+    def test_source_selection_reaches_previous_year_and_outcome_call(self):
+        from finn.analysis.guidance import review_period, select_transcripts
+        links = [DocumentLink(ticker="INFY", kind="transcript", url=f"https://example.com/{index}.pdf", title=title, discovery_url="https://www.screener.in/company/INFY/") for index,title in enumerate(["Oct 2026 Transcript", "Jul 2026 Transcript", "Apr 2026 Transcript", "Feb 2026 Transcript", "Jan 2026 Transcript", "Oct 2025 Transcript", "Jul 2025 Transcript", "Apr 2025 Transcript"])]
+        selected = select_transcripts(links, review_period(self.as_of), self.as_of, 6)
+        titles = [item.title for item in selected]
+        self.assertIn("Jan 2026 Transcript", titles)
+        self.assertIn("Apr 2025 Transcript", titles)
+        self.assertIn("Apr 2026 Transcript", titles)
+        self.assertIn("Oct 2026 Transcript", titles)
+        self.assertNotIn("Feb 2026 Transcript", titles)
 
     def test_inr_normalization(self):
         result = compare(statement(metric="revenue", unit="INR_crore", lower=100, upper=110), [actual(metric="revenue", unit="INR_million", value=1050)], self.as_of)
@@ -126,6 +162,27 @@ class PersistenceAndModel(unittest.TestCase):
         with self.store.connection() as db:
             db.execute("UPDATE jobs SET updated_at=? WHERE id=?", ((datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(), job["id"]))
         self.assertEqual(self.store.claim()["id"], job["id"])
+
+    def test_progress_survives_reopen_and_duplicate_options(self):
+        from finn.jobs.progress import JobProgress
+        job = self.store.enqueue("INFY", {"max_calls": 2})
+        same = self.store.enqueue("INFY", {"max_calls": 6})
+        self.assertEqual(job["id"], same["id"])
+        self.store.claim()
+        self.store.update_job(job["id"], "parsing:2:5")
+        reopened = Store(self.root)
+        saved = reopened.job(job["id"])
+        self.assertIn("started_at", saved)
+        progress = JobProgress(reopened).present(saved)["progress"]
+        self.assertEqual(progress["step"], 3)
+        self.assertIn("2 of 5", progress["detail"])
+        self.assertNotIn("estimated_total_seconds", progress)
+
+    def test_research_progress_excludes_headline_jobs(self):
+        from finn.jobs.progress import JobProgress
+        research = self.store.enqueue("INFY", {"max_calls": 1})
+        self.store.enqueue("INFY", {"_kind": "headlines", "event": {}})
+        self.assertEqual(JobProgress(self.store).latest("INFY")["id"], research["id"])
 
     def test_cached_extraction_makes_no_second_provider_call(self):
         settings = Settings(_env_file=None, gemini_api_key="test-only", finn_data_dir=self.root)

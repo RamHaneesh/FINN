@@ -113,7 +113,7 @@ class FinancialSource:
         index = history.index(latest)
         prev = history[index - 1] if index else {}
         year = next((row for row in history if row["end"][:4] == str(int(latest["end"][:4]) - 1) and row["end"][5:7] == latest["end"][5:7]), {})
-        return {"latest_period": latest["label"], "source_url": snapshot["source_url"], "metrics": [{"metric": metric, "label": label, "value": latest.get(metric), "qoq": growth(latest.get(metric), prev.get(metric)), "yoy": growth(latest.get(metric), year.get(metric)), "derived": metric == "ebitda" and latest.get("ebitda_derived", False)} for metric, label in METRICS]}
+        return {"latest_period": latest["label"], "source_type": "standardized_table", "source_url": snapshot["source_url"], "metrics": [{"metric": metric, "label": label, "value": latest.get(metric), "qoq": growth(latest.get(metric), prev.get(metric)), "yoy": growth(latest.get(metric), year.get(metric)), "derived": metric == "ebitda" and latest.get("ebitda_derived", False)} for metric, label in METRICS]}
 
     @staticmethod
     def facts(snapshot):
