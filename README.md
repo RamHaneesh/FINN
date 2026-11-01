@@ -251,6 +251,8 @@ Checks cover evidence rejection, compatible numerical comparisons, market baseli
 
 ## Deployment
 
+Deploy the entire app as one **Render Free web service**, with FastAPI serving the frontend, API and embedded worker. See [the deployment guide](docs/DEPLOYMENT.md). The free configuration restores bundled data on startup but loses runtime cache additions on restart and sleeps when idle. No separate frontend host is required.
+
 For Render/Railway or a similar Python host:
 
 ```text
