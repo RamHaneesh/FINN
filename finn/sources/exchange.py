@@ -6,6 +6,7 @@ import httpx
 from finn.domain import Announcement, fingerprint, normalize_ticker
 from finn.sources.http import SourceError
 from finn.storage import Store
+from finn.sources.universe import source_symbol
 
 
 class NSESource:
@@ -21,7 +22,7 @@ class NSESource:
         today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
         with httpx.Client(timeout=self.timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.nseindia.com/"}) as client:
             client.get("https://www.nseindia.com/")
-            response = client.get("https://www.nseindia.com/api/corporate-announcements", params={"index": "equities", "symbol": ticker, "from_date": (today - timedelta(days=days)).strftime("%d-%m-%Y"), "to_date": today.strftime("%d-%m-%Y")})
+            response = client.get("https://www.nseindia.com/api/corporate-announcements", params={"index": "equities", "symbol": source_symbol(ticker), "from_date": (today - timedelta(days=days)).strftime("%d-%m-%Y"), "to_date": today.strftime("%d-%m-%Y")})
         if response.status_code != 200:
             raise SourceError(f"NSE returned HTTP {response.status_code}")
         try:
@@ -32,7 +33,7 @@ class NSESource:
             raise SourceError("NSE announcement schema changed")
         events = []
         for row in payload:
-            if row.get("symbol", "").upper() != ticker:
+            if row.get("symbol", "").upper() != source_symbol(ticker):
                 continue
             raw_date = row.get("an_dt") or row.get("sort_date")
             parsed = None

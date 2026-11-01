@@ -26,6 +26,11 @@ class PortfolioService:
 
     def company(self, ticker):
         ticker = normalize_ticker(ticker)
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
+        saved = self.store.get('company-view-v1',ticker)
+        if saved and saved.get('as_of') == str(today) and saved.get('sector') == portfolio.get('sector'):
+            return saved['data']
         snapshot = self.store.get("financials-v1", ticker)
         business = self.store.get(PROFILE_CACHE, ticker)
         research = self.store.get("research-v1", ticker)
@@ -36,8 +41,11 @@ class PortfolioService:
             research["comparisons"] = [compare(item, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date()).model_dump(mode="json") for item in statements]
             research["guidance_review"] = guidance_review(statements, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date(), snapshot)
         portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
-        return {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else (business or {}).get("name", ticker), "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research,
-                "trajectory": cached_trajectory(self.store, ticker, snapshot), "business": business}
+        result = {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else (business or {}).get("name", ticker), "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research,
+                "trajectory": cached_trajectory(self.store, ticker, snapshot), "business": business,
+                "research_availability": self.store.get('research-availability-v1',ticker)}
+        self.store.put('company-view-v1',ticker,{'as_of':str(today),'sector':portfolio.get('sector'),'data':result})
+        return result
 
     def digest(self, hours=24):
         settings = self.preferences()

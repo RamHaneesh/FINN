@@ -36,6 +36,10 @@ def run_once(pipeline: Pipeline) -> bool:
             result = report.model_dump(mode="json")
         pipeline.store.update_job(job_id, "complete", "completed", result)
     except Exception as exc:
+        unavailable = pipeline.store.get('research-availability-v1',job['ticker'])
+        if isinstance(exc, SourceError) and unavailable:
+            pipeline.store.update_job(job_id,'complete','completed',{'availability':unavailable})
+            return True
         detail = str(exc) if isinstance(exc, (SourceError, ModelError)) else f"{type(exc).__name__}; inspect source access and configuration"
         pipeline.store.update_job(job_id, "failed", "failed", error=detail)
         logger.warning("Research job %s failed: %s", job_id, type(exc).__name__)

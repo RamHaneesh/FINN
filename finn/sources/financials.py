@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from finn.domain import Citation, FinancialFact, fingerprint, normalize_ticker, utc_now
 from finn.sources.http import PublicHTTP, SourceError
 from finn.storage import Store
+from finn.sources.universe import source_symbol
 
 METRICS = [("revenue", "Revenue"), ("ebitda", "EBITDA"), ("pbt", "PBT"), ("pat", "PAT")]
 
@@ -36,7 +37,7 @@ class FinancialSource:
         if cached is not None:
             return cached
         for suffix in ["consolidated/", ""]:
-            url = f"https://www.screener.in/company/{ticker}/{suffix}"
+            url = f"https://www.screener.in/company/{source_symbol(ticker)}/{suffix}"
             try:
                 html = self.http.fetch(url, max_bytes=3_000_000)
                 from finn.sources.profile import CACHE, ProfileSource
@@ -65,6 +66,9 @@ class FinancialSource:
         basis = "consolidated" if "consolidated" in section.get_text(" ", strip=True).lower() else "standalone"
         result = {"ticker": ticker, "name": company.get_text(" ", strip=True) if company else ticker, "basis": basis, "source_url": url + "#quarters", "source_type": "standardized_table", "fetched_at": utc_now(), "history": quarterly, "annual": annual,
                   "note": "Source: Screener standardized company financials. EBITDA* is a derived proxy: PBT + interest + depreciation − other income, cross-checked against operating profit. It is not separately disclosed EBITDA and is excluded from guidance comparisons. Unavailable values remain blank."}
+        result['source_ticker'] = source_symbol(ticker)
+        if ticker != source_symbol(ticker):
+            result['note'] += f' Watchlist label {ticker}; current source symbol {source_symbol(ticker)}. Historical figures may span corporate reorganisations and are not necessarily like-for-like.'
         result.update(FinancialSource.headlines(result))
         return result
 

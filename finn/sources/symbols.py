@@ -17,6 +17,15 @@ class SymbolDirectory:
     def listing(self):
         cached = self.store.get("symbols-v1", "NSE")
         if cached:
+            # Preserve explicitly configured legacy watchlist labels in search as well.
+            from finn.sources.universe import COMPANIES
+            known={item['ticker'] for item in cached['symbols']}
+            for company in COMPANIES:
+                if company['ticker'] in known:
+                    continue
+                snapshot=self.store.get('financials-v1',company['ticker']) or {}
+                cached['symbols'].append({'ticker':company['ticker'],'name':snapshot.get('name',company['ticker']),
+                                          'source_ticker':company.get('source_ticker',company['ticker'])})
             return cached
         companies = json.loads((ROOT / "config/portfolio.json").read_text())["companies"]
         items = []

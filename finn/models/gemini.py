@@ -39,8 +39,9 @@ def provider_schema(schema):
 
 
 class Gemini:
-    def __init__(self, settings: Settings, store: Store, max_calls: int):
+    def __init__(self, settings: Settings, store: Store, max_calls: int, ticker=None):
         self.settings, self.store, self.max_calls = settings, store, max_calls
+        self.ticker = ticker
         self.calls, self.cache_hits = 0, 0
 
     def structured(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
@@ -64,7 +65,7 @@ class Gemini:
             result = schema.model_validate_json(response.text)
             usage["status"] = "success"
             usage["tokens"] = response.usage_metadata.model_dump(mode="json") if response.usage_metadata else {}
-            self.store.put("model-json-v1", key, result.model_dump(mode="json"))
+            self.store.put("model-json-v1", key, result.model_dump(mode="json"), ticker=self.ticker)
             return result
         except ModelError:
             usage["status"] = "failed"

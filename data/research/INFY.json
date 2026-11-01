@@ -1,0 +1,113 @@
+{
+  "ticker": "INFY",
+  "generated_at": "2026-10-31T14:56:27.440459+00:00",
+  "model": "gemini-3.5-flash-lite",
+  "documents": [
+    {
+      "ticker": "INFY",
+      "url": "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7982fc61-7765-4981-ab3d-6aec36ba2137.pdf",
+      "kind": "transcript",
+      "title": "Oct 2026 Transcript AI Summary PPT REC",
+      "discovery_url": "https://www.screener.in/company/INFY/consolidated/",
+      "published_on": null
+    }
+  ],
+  "narratives": [
+    {
+      "metric": "revenue_growth_yoy",
+      "period_start": "2026-04-01",
+      "period_end": "2027-03-31",
+      "basis": "consolidated",
+      "scope": "company",
+      "currency_basis": "constant_currency",
+      "unit": "percent",
+      "narrative_type": "guidance",
+      "stated_on": "2026-10-23",
+      "lower": 1.0,
+      "upper": 2.0,
+      "direction": "increase",
+      "citation": {
+        "document_id": "ff835c1b28d76d103b7431d262881fed10192e4afeb26e4746420b5ad83a6364",
+        "url": "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7982fc61-7765-4981-ab3d-6aec36ba2137.pdf",
+        "page": 4,
+        "quote": "Based on our Q2 performance and revised outlook for rest of the year, our revenue growth guidance is 1% to 2% YoY .in constant currency terms."
+      }
+    }
+  ],
+  "facts": [
+    {
+      "metric": "revenue_growth_yoy",
+      "period_start": "2026-07-01",
+      "period_end": "2026-09-30",
+      "basis": "consolidated",
+      "scope": "company",
+      "currency_basis": "constant_currency",
+      "unit": "percent",
+      "value": 1.5,
+      "reported_on": "2026-10-23",
+      "citation": {
+        "document_id": "ff835c1b28d76d103b7431d262881fed10192e4afeb26e4746420b5ad83a6364",
+        "url": "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7982fc61-7765-4981-ab3d-6aec36ba2137.pdf",
+        "page": 4,
+        "quote": "Our revenue growth for Q2 was 1.5% YoY and 1.2% sequentially in constant currency terms."
+      }
+    },
+    {
+      "metric": "revenue_growth_qoq",
+      "period_start": "2026-07-01",
+      "period_end": "2026-09-30",
+      "basis": "consolidated",
+      "scope": "company",
+      "currency_basis": "constant_currency",
+      "unit": "percent",
+      "value": 1.2,
+      "reported_on": "2026-10-23",
+      "citation": {
+        "document_id": "ff835c1b28d76d103b7431d262881fed10192e4afeb26e4746420b5ad83a6364",
+        "url": "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7982fc61-7765-4981-ab3d-6aec36ba2137.pdf",
+        "page": 4,
+        "quote": "Our revenue growth for Q2 was 1.5% YoY and 1.2% sequentially in constant currency terms."
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "narrative": {
+        "metric": "revenue_growth_yoy",
+        "period_start": "2026-04-01",
+        "period_end": "2027-03-31",
+        "basis": "consolidated",
+        "scope": "company",
+        "currency_basis": "constant_currency",
+        "unit": "percent",
+        "narrative_type": "guidance",
+        "stated_on": "2026-10-23",
+        "lower": 1.0,
+        "upper": 2.0,
+        "direction": "increase",
+        "citation": {
+          "document_id": "ff835c1b28d76d103b7431d262881fed10192e4afeb26e4746420b5ad83a6364",
+          "url": "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7982fc61-7765-4981-ab3d-6aec36ba2137.pdf",
+          "page": 4,
+          "quote": "Based on our Q2 performance and revised outlook for rest of the year, our revenue growth guidance is 1% to 2% YoY .in constant currency terms."
+        }
+      },
+      "actual": null,
+      "status": "Pending",
+      "relationship": "unavailable",
+      "explanation": "The target period has not ended.",
+      "difference": null
+    }
+  ],
+  "warnings": [
+    "Prototype coverage: up to four recent transcripts, one annual report and one recent results filing. Dates/basis and financial extraction still need human review.",
+    "Rejected narratives record: the quoted metric does not explicitly establish EBITDA.",
+    "Rejected facts record: the quoted metric does not explicitly establish EBITDA.",
+    "Partial extraction: processed 1 of 7 chunks within model-call budget. Missing findings are not evidence of absence."
+  ],
+  "model_calls": 0,
+  "cache_hits": 1,
+  "chunks_total": 7,
+  "chunks_processed": 1,
+  "coverage": "partial"
+}

@@ -1,6 +1,7 @@
 from statistics import mean
 
 from finn.domain import Announcement, AttentionItem, PriceBar, fingerprint
+from finn.sources.universe import source_symbol
 
 
 def market_attention(ticker: str, bars: list[PriceBar], price_threshold=3., volume_multiple=2., lookback=20) -> list[AttentionItem]:
@@ -12,10 +13,10 @@ def market_attention(ticker: str, bars: list[PriceBar], price_threshold=3., volu
     result = []
     change = (latest.close / previous.close - 1) * 100
     if not latest.split and abs(change) >= price_threshold:
-        result.append(AttentionItem(item_id=fingerprint([ticker, str(latest.date), "price"]), ticker=ticker, kind="price", title=f"Daily close moved {change:+.2f}%", reason=f"Exceeded your {price_threshold:g}% threshold; unadjusted close, review corporate actions.", occurred_at=str(latest.date), source_url=f"https://finance.yahoo.com/quote/{ticker}.NS/history/"))
+        result.append(AttentionItem(item_id=fingerprint([ticker, str(latest.date), "price"]), ticker=ticker, kind="price", title=f"Daily close moved {change:+.2f}%", reason=f"Exceeded your {price_threshold:g}% threshold; unadjusted close, review corporate actions.", occurred_at=str(latest.date), source_url=f"https://finance.yahoo.com/quote/{source_symbol(ticker)}.NS/history/"))
     if baseline > 0 and latest.volume / baseline > volume_multiple:
         multiple = latest.volume / baseline
-        result.append(AttentionItem(item_id=fingerprint([ticker, str(latest.date), "volume"]), ticker=ticker, kind="volume", title=f"Volume {multiple:.2f}x its prior {lookback}-session average", reason=f"Exceeded your {volume_multiple:g}x threshold; the current session is excluded from the baseline.", occurred_at=str(latest.date), source_url=f"https://finance.yahoo.com/quote/{ticker}.NS/history/"))
+        result.append(AttentionItem(item_id=fingerprint([ticker, str(latest.date), "volume"]), ticker=ticker, kind="volume", title=f"Volume {multiple:.2f}x its prior {lookback}-session average", reason=f"Exceeded your {volume_multiple:g}x threshold; the current session is excluded from the baseline.", occurred_at=str(latest.date), source_url=f"https://finance.yahoo.com/quote/{source_symbol(ticker)}.NS/history/"))
     return result
 
 

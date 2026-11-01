@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {createAnalysisProgress} from '../web/src/analysis.js';
+
+const card={hidden:true,dataset:{},setAttribute(){},replaceChildren(){this.innerHTML='';}};
+const background={hidden:true},clock={textContent:''},view={hidden:false};
+let tick;
+globalThis.document={hidden:false,querySelector:s=>({'#analysis-progress':card,'#background-analysis':background,'#view-research':view,'#analysis-elapsed':clock}[s]||null),getElementById:()=>null};
+const realInterval=globalThis.setInterval,realNow=Date.now;
+globalThis.setInterval=fn=>{tick=fn;};
+let now=100000;Date.now=()=>now;
+let resolveJob,completed=0,updated=0;
+const api=()=>new Promise(resolve=>resolveJob=resolve);
+const progress=createAnalysisProgress({api,onSnapshot:async()=>updated++,onComplete:()=>completed++,onOpen(){},onRetry(){}});
+progress.select('WIPRO');
+const target={appendChild(node){this.child=node;}};
+progress.mount(target);
+const running={id:'one',ticker:'WIPRO',status:'running',stage:'extracting',created_at:'2026-11-01',progress:{step:4,elapsed_seconds:10,title:'Analyze narrative'}};
+progress.track(running);
+assert.equal(target.child,card);
+assert.match(card.innerHTML,/Extracting guidance from primary transcripts/);
+assert.equal(background.hidden,true);
+now+=3000;tick();assert.equal(clock.textContent,'Elapsed 13s');
+// The same node can be mounted again after its former company DOM is removed.
+const replacement={appendChild(node){this.child=node;}};progress.mount(replacement);
+assert.equal(replacement.child,card);
+resolveJob({...running,status:'completed',stage:'complete'});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(card.hidden,true);assert.equal(updated,1);assert.equal(completed,1);
+globalThis.setInterval=realInterval;Date.now=realNow;
+console.log('Narrative progress placement, elapsed timer, remount and automatic completion update verified.');

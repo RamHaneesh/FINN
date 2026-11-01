@@ -39,8 +39,8 @@ class DocumentService:
             document = ParsedDocument.model_validate(cached_parsed)
         else:
             document = self.parse(raw, link, document_id, content_hash)
-            self.store.put(PARSER_VERSION, document_id, document.model_dump(mode="json"))
-        self.store.put("document-url-v1", key, {"document_id": document_id})
+            self.store.put(PARSER_VERSION, document_id, document.model_dump(mode="json"), ticker=link.ticker)
+        self.store.put("document-url-v1", key, {"document_id": document_id}, ticker=link.ticker)
         return document
 
     @staticmethod

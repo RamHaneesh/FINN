@@ -3,6 +3,7 @@ import re
 from bs4 import BeautifulSoup
 from finn.domain import normalize_ticker, utc_now
 from finn.sources.http import SourceError
+from finn.sources.universe import source_symbol
 
 CACHE = 'business-profile-v2'
 
@@ -64,7 +65,7 @@ class ProfileSource:
                         break
         company = soup.select_one('h1')
         return {'status': 'ready', 'source_type': 'company_profile', 'source_name': 'Screener company profile',
-                'ticker': ticker, 'name': company.get_text(' ', strip=True) if company else ticker,
+                'ticker': ticker, 'source_ticker': source_symbol(ticker), 'name': company.get_text(' ', strip=True) if company else ticker,
                 'description': description, 'segments': segments[:6], 'revenue_mix': mix[:8], 'products': products[:3],
                 'source_url': url.split('#')[0], 'generated_at': utc_now(),
                 'note': 'Copied from the public company profile. Segment percentages retain the profile’s reporting periods; they are not current estimates.',
@@ -76,7 +77,7 @@ class ProfileSource:
         if existing and existing.get('status') == 'ready' and not refresh:
             return existing
         for suffix in ['consolidated/', '']:
-            url = f'https://www.screener.in/company/{ticker}/{suffix}'
+            url = f'https://www.screener.in/company/{source_symbol(ticker)}/{suffix}'
             try:
                 html = self.http.fetch(url, max_bytes=3_000_000)
                 result = self.parse(ticker, url, html)

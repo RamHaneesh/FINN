@@ -113,5 +113,78 @@ class CompanyContext(unittest.TestCase):
             asyncio.run(exercise(Path(tmp)))
 
 
+class AutomaticCompletion(unittest.TestCase):
+    def test_missing_sections_are_filled_independently_and_jobs_are_deduplicated(self):
+        import asyncio
+        import httpx
+        from unittest.mock import patch
+        from finn.api.app import app
+        from finn.config import Settings
+        from finn.domain import utc_now
+
+        async def exercise(root):
+            settings=Settings(_env_file=None, finn_data_dir=root, finn_max_model_calls=0)
+            with patch('finn.api.app.get_settings', return_value=settings):
+                async with app.router.lifespan_context(app):
+                    store=app.state.pipeline.store
+                    def financial(ticker, **kwargs):
+                        data=dict(snapshot(), ticker=ticker, name=ticker, history=[{'label':'Mar 2026','end':'2026-03-31'}], fetched_at=utc_now(), metrics=[])
+                        store.put('financials-v1', ticker, data)
+                        return data
+                    def profile(ticker, **kwargs):
+                        data={'status':'ready','name':ticker,'description':'The company manufactures pumps. It serves industrial clients.','generated_at':utc_now()}
+                        store.put(CACHE,ticker,data)
+                        return data
+                    def research(ticker):
+                        store.put('research-v1',ticker,{'narratives':[],'facts':[],'documents':[],'coverage':'processed'})
+                    with patch('finn.sources.profile.ProfileSource.fetch',side_effect=profile) as profiles, patch('finn.sources.financials.FinancialSource.fetch',side_effect=financial) as financials, patch('finn.models.Gemini') as model, patch.object(app.state.pipeline,'discover') as discover:
+                        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
+                            first=(await client.post('/api/company/NEW/complete')).json()
+                            second=(await client.post('/api/company/NEW/complete')).json()
+                            self.assertEqual(first['research_job']['id'],second['research_job']['id'])
+                            self.assertEqual(profiles.call_count,1)
+                            self.assertEqual(financials.call_count,1)
+                            saved=(await client.get('/api/company/NEW')).json()
+                            self.assertTrue(saved['trajectory']['rows'])
+                            self.assertFalse(saved['context_pending'])
+                            self.assertEqual(saved['business']['status'],'ready')
+                            financial('FINONLY'); profile('FINONLY')
+                            result=(await client.post('/api/company/FINONLY/complete')).json()
+                            self.assertFalse(result['context_pending'])
+                            self.assertIsNotNone(result['research_job'])
+                            profile('FINMISS'); research('FINMISS')
+                            result=(await client.post('/api/company/FINMISS/complete')).json()
+                            self.assertTrue(result['context_pending'])
+                            self.assertIsNone(result['research_job'])
+                            self.assertIsNotNone(store.get('financials-v1','FINMISS'))
+                            financial('PROFILEMISS'); research('PROFILEMISS')
+                            result=(await client.post('/api/company/PROFILEMISS/complete')).json()
+                            self.assertIsNone(result['research_job'])
+                            self.assertIsNotNone(store.get(CACHE,'PROFILEMISS'))
+                            financial('TRJMISS'); profile('TRJMISS'); research('TRJMISS')
+                            incomplete=store.get('financials-v1','TRJMISS'); incomplete['annual']=[]
+                            store.put('financials-v1','TRJMISS',incomplete)
+                            result=(await client.post('/api/company/TRJMISS/complete')).json()
+                            self.assertTrue(result['context_pending'])
+                            self.assertIsNone(result['research_job'])
+                            self.assertTrue(store.get('financials-v1','TRJMISS')['annual'])
+                            research('FINONLY')
+                            # A valid empty research report must not trigger new analysis.
+                            store.update_job(store.recent_jobs('FINONLY')[0]['id'],'complete','completed',{})
+                            result=(await client.post('/api/company/FINONLY/complete')).json()
+                            self.assertFalse(any(result['missing'].values()))
+                            self.assertIsNone(result['research_job'])
+                            financial('FAILED'); profile('FAILED')
+                            job=store.enqueue('FAILED',{'max_calls':0})
+                            store.update_job(job['id'],'failed','failed',error='Quota unavailable')
+                            result=(await client.post('/api/company/FAILED/complete')).json()
+                            self.assertIsNone(result['research_job'])
+                            self.assertEqual(len(store.recent_jobs('FAILED')),1)
+                    model.assert_not_called()
+                    discover.assert_not_called()
+        with TemporaryDirectory() as tmp:
+            asyncio.run(exercise(Path(tmp)))
+
+
 if __name__ == '__main__':
     unittest.main()

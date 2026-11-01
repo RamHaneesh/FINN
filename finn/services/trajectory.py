@@ -53,14 +53,14 @@ def calculate(snapshot):
         series.append({'metric': metric, 'label': label, 'unit': unit, 'points': points, 'cagr': cagr,
                        'change': change, 'derived': metric == 'ebitda_margin' and any(row.get('ebitda_derived') for row in rows)})
     return {'periods': [row['label'] for row in rows], 'series': series, 'rows': table, 'summary': summary, 'basis': snapshot['basis'],
-            'source_url': snapshot['source_url'].split('#')[0]+'#profit-loss', 'source_type': 'standardized_table',
-            'generated_at': utc_now(), 'note': 'Completed annual periods only; TTM excluded. YoY compares the same fiscal year-end one year earlier. Five-year CAGR uses an additional preceding annual observation where available; shorter available history is labeled. Missing or non-positive endpoints have no CAGR. EBITDA margin* uses the same derived proxy as the snapshot.'}
+            'source_url': snapshot['source_url'].split('#')[0]+'#profit-loss', 'source_type': 'standardized_table', 'source_ticker': snapshot.get('source_ticker', snapshot.get('ticker')),
+            'generated_at': utc_now(), 'note': 'Completed annual periods only; TTM excluded. YoY compares the same fiscal year-end one year earlier. Five-year CAGR uses an additional preceding annual observation where available; shorter available history is labeled. Missing or non-positive endpoints have no CAGR. EBITDA margin* uses the same derived proxy as the snapshot.' + (' Watchlist label '+snapshot['ticker']+'; source symbol '+snapshot['source_ticker']+'. Historical periods may span corporate reorganisations.' if snapshot.get('source_ticker') and snapshot.get('ticker')!=snapshot['source_ticker'] else '')}
 
 
 def cached_trajectory(store, ticker, snapshot):
     if not snapshot:
         return None
-    key = fingerprint({'version': 2, 'annual': snapshot.get('annual', []), 'basis': snapshot['basis']})
+    key = fingerprint({'version': 3, 'annual': snapshot.get('annual', []), 'basis': snapshot['basis']})
     saved = store.get('trajectory-v1', ticker)
     if saved and saved['input_key'] == key:
         return saved

@@ -8,6 +8,7 @@ import time
 from uuid import uuid4
 
 from finn.domain import fingerprint, utc_now
+from finn.storage import retention
 
 
 class Store:
@@ -32,11 +33,13 @@ class Store:
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS one_active_job ON jobs(request_key)
                     WHERE status IN ('queued', 'running');
+                CREATE INDEX IF NOT EXISTS jobs_by_ticker ON jobs(ticker,created_at DESC);
                 CREATE TABLE IF NOT EXISTS job_tracking (
                     job_id TEXT PRIMARY KEY, started_at TEXT NOT NULL,
                     phase_started_at TEXT NOT NULL, timings TEXT NOT NULL
                 );
             """)
+            retention.schema(db)
 
     @contextmanager
     def connection(self):
@@ -55,9 +58,32 @@ class Store:
             return None
         return json.loads(row["payload"])
 
-    def put(self, namespace: str, key: str, payload):
+    def put(self, namespace: str, key: str, payload, ticker=None):
         with self.connection() as db:
-            db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (namespace, key, json.dumps(payload, default=str), time.time()))
+            db.execute('BEGIN IMMEDIATE')
+            owner = ticker or (key if namespace in retention.TICKER_CACHES else None)
+            if owner and not retention.register(db, owner):
+                return  # A background job must not resurrect an evicted ad-hoc company.
+            created, encoded = time.time(), json.dumps(payload, default=str)
+            db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (namespace, key, encoded, created))
+            if owner:
+                if namespace in retention.SECTIONS or namespace == 'research-availability-v1':
+                    db.execute("DELETE FROM cache WHERE namespace='company-view-v1' AND key=?",(owner,))
+                db.execute('INSERT OR IGNORE INTO cache_owners VALUES(?,?,?)',(namespace,key,owner))
+                if namespace in retention.SECTIONS:
+                    db.execute('INSERT OR REPLACE INTO dated_cache VALUES(?,?,?,?,?)',(namespace,owner,retention.dated(payload,created),encoded,created))
+                retention.prune(db)
+
+    def touch_company(self, ticker):
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            retention.register(db,ticker,opened=True)
+            retention.prune(db)
+
+    def get_dated(self, namespace, ticker, as_of):
+        with self.connection() as db:
+            row=db.execute('SELECT payload FROM dated_cache WHERE namespace=? AND ticker=? AND as_of=?',(namespace,ticker,as_of)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def values(self, namespace: str):
         with self.connection() as db:
@@ -107,6 +133,11 @@ class Store:
                 phase = previous["stage"].split(":")[0]
                 timings[phase] = round(timings.get(phase, 0) + elapsed, 2)
                 db.execute("UPDATE job_tracking SET phase_started_at=?,timings=? WHERE job_id=?", (now, json.dumps(timings), job_id))
+            if result is not None:
+                job_ticker = db.execute('SELECT ticker FROM jobs WHERE id=?',(job_id,)).fetchone()
+                retained = db.execute('SELECT retained FROM company_access WHERE ticker=?',(job_ticker[0],)).fetchone() if job_ticker else None
+                if retained and not retained[0]:
+                    result = None
             db.execute("UPDATE jobs SET stage=?,status=?,updated_at=?,result=?,error=? WHERE id=?", (stage, status, now, json.dumps(result) if result is not None else None, error, job_id))
 
     def job(self, job_id: str) -> dict | None:
@@ -124,6 +155,24 @@ class Store:
         with self.connection() as db:
             rows = db.execute("SELECT id FROM jobs " + ("WHERE ticker=? " if ticker else "") + "ORDER BY created_at DESC LIMIT ?", (ticker, limit) if ticker else (limit,)).fetchall()
         return [self.job(row["id"]) for row in rows]
+
+    def latest_research_job(self, ticker):
+        """Status-only lookup; never deserialize historical research result payloads."""
+        with self.connection() as db:
+            row=db.execute('''SELECT j.id,j.ticker,j.payload,j.status,j.stage,j.created_at,j.updated_at,
+                NULL AS result,j.error,t.started_at,t.phase_started_at,t.timings
+                FROM jobs j LEFT JOIN job_tracking t ON t.job_id=j.id
+                WHERE j.ticker=? AND COALESCE(json_extract(j.payload,'$._kind'),'research')='research'
+                ORDER BY (j.status IN ('queued','running')) DESC,j.created_at DESC LIMIT 1''',(ticker,)).fetchone()
+        if row is None:
+            return None
+        data=self._job(row)
+        timings=data.pop('timings')
+        data['stage_timings']=json.loads(timings) if timings else {}
+        for key in ['started_at','phase_started_at']:
+            if data.get(key) is None:
+                data.pop(key,None)
+        return data
 
     @staticmethod
     def _job(row) -> dict:

@@ -31,9 +31,8 @@ class JobProgress:
         return self.embedded_alive or bool(saved and seconds_since(saved["seen_at"]) < 180)
 
     def latest(self, ticker):
-        jobs = [job for job in self.store.recent_jobs(ticker) if job["payload"].get("_kind", "research") == "research"]
-        active = next((job for job in jobs if job["status"] in {"queued", "running"}), None)
-        return self.present(active or jobs[0], include_result=False) if jobs else None
+        job = self.store.latest_research_job(ticker)
+        return self.present(job, include_result=False) if job else None
 
     def present(self, job, include_result=True):
         data = dict(job)

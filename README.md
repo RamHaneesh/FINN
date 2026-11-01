@@ -30,7 +30,7 @@ To prepare real data on a fresh checkout:
 .\.venv\Scripts\python -m scripts.prepare_demo --research INFY DIXON --max-calls 6
 ```
 
-This warms all 18 portfolio companies and both research examples. Uncached transcript extraction consumes Gemini quota. Opening saved views does not parse PDFs or make model calls.
+This warms all 35 portfolio companies and both research examples. Uncached transcript extraction consumes Gemini quota. Opening saved views does not parse PDFs or make model calls.
 
 ## Pipeline commands
 
@@ -50,7 +50,7 @@ This warms all 18 portfolio companies and both research examples. Uncached trans
 # Refresh EOD data and filings, producing preliminary attention cards.
 .\.venv\Scripts\python -m scripts.refresh INFY RELIANCE --days 7 --price-percent 3 --volume-multiple 2
 
-# All 18 mock holdings; fetches sequentially to avoid source bursts.
+# All 35 coverage holdings; fetches sequentially to avoid source bursts.
 .\.venv\Scripts\python -m scripts.refresh --portfolio
 
 # Offline correctness tests; no provider calls or live finance requests.
@@ -59,7 +59,7 @@ This warms all 18 portfolio companies and both research examples. Uncached trans
 
 `--refresh` on research refetches source documents. Content hashes preserve cached model results when the document is unchanged. `--max-calls 0` allows cached extraction only. The server-configured model-call cap also applies. Reports explicitly disclose unprocessed chunks; partial extraction is never presented as complete company research.
 
-Reports, raw PDFs, parsed pages, usage metadata and SQLite are stored beneath `data/`, which is Git-ignored. Override using `FINN_DATA_DIR` for a persistent deployment volume. Repeated source listings have separate freshness limits: discovery six hours, document URL one day, prices one hour and filings fifteen minutes.
+Reports, raw PDFs, parsed pages and SQLite are stored beneath `data/`. The pre-warmed database and source evidence are included in Git so a fresh deployment starts with all 35 covered companies. Override using `FINN_DATA_DIR` for a persistent deployment volume; an empty volume is automatically seeded at server startup from the bundled `data/` directory. Existing databases are never overwritten. Repeated source listings have separate freshness limits: discovery six hours, document URL one day, prices one hour and filings fifteen minutes.
 
 ## API and worker
 
@@ -114,3 +114,26 @@ An identical cache-only run used zero model calls. A live refresh retrieved 64 d
 The offline checks cover numerical matching, evidence rejection, market baselines, source discovery, cache reuse, job deduplication/recovery and API-to-worker execution.
 
 See [WORKPLAN.md](WORKPLAN.md) for the full assessment scope and execution milestones.
+
+
+Coverage cache preparation:
+
+```powershell
+.\.venv\Scripts\python -m scripts.warm_universe --max-calls 6 --wait
+.\.venv\Scripts\python -m scripts.audit_universe
+```
+
+Keep `scripts.serve` running while warming so its single worker consumes queued research. The script reuses saved sections and reports missing primary transcripts honestly. The local HTTP audit writes `COVERAGE_STATUS.md` and detailed timing samples to `tmp/universe-latency.json`. `config/portfolio.json` is the exact 35-label coverage list; ZOMATO and TATAMOTORS explicitly resolve to ETERNAL and TMPV source data. These legacy labels remain visible in the watchlist and search. All coverage members are pinned against ad-hoc cache eviction.
+
+
+The repository includes the pre-warmed `data/finn.sqlite3`, cached source PDFs/JSON, code, configuration, tests and documentation. Credentials, `.venv/`, `__pycache__/`, temporary logs, SQLite transient journals/locks and screenshots are ignored. Cache warming is optional for refreshing data, not a deployment prerequisite.
+
+## Render / Railway startup
+
+Build command: `pip install -r requirements.txt`
+
+Start command: `python -m scripts.serve --host 0.0.0.0`
+
+The server reads the platform's `PORT` automatically and starts its background worker. With the default settings it opens the committed pre-warmed database directly. If a persistent disk is mounted, set `FINN_DATA_DIR` to its writable directory (for example `/var/data/finn`); on first startup the bundled database and evidence files are copied there without source requests or model calls. Later starts preserve the volume's existing database. Use one application process/replica for this SQLite prototype.
+
+All 35 companies have saved profiles, financial snapshots and five-year trajectories. Narrative reports are available for 34; TRENT retains its explicit no-primary-transcript availability record. Saved research is usable without a Gemini key; configure `GEMINI_API_KEY` in platform secrets to enable new analysis and refreshes. Fresh source prices/filings and new searches still require network access. Saved data retains its original timestamps; deployment does not make it live data.

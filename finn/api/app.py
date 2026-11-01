@@ -4,7 +4,7 @@ import threading
 import logging
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -15,12 +15,15 @@ from finn.documents.parser import PARSER_VERSION
 from finn.pipeline import Pipeline
 from finn.services.portfolio import PortfolioService
 from finn.sources.symbols import SymbolDirectory
-from finn.jobs.progress import JobProgress
+from finn.jobs.progress import JobProgress, seconds_since
+from finn.storage.seed import bootstrap_seed
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.pipeline = Pipeline(get_settings())
+    settings = get_settings()
+    bootstrap_seed(settings.finn_data_dir)
+    app.state.pipeline = Pipeline(settings)
     app.state.symbols = SymbolDirectory(app.state.pipeline.store, app.state.pipeline.http)
     app.state.profile_pending = set()
     app.state.profile_lock = threading.Lock()
@@ -74,8 +77,10 @@ def symbols(request: Request):
 
 
 @app.get("/api/company/{ticker}")
-def company_view(ticker: str, request: Request):
+def company_view(ticker: str, request: Request, opened: bool = False):
     try:
+        if opened:
+            request.app.state.pipeline.store.touch_company(normalize_ticker(ticker))
         data = PortfolioService(request.app.state.pipeline).company(ticker)
         # Send the mobile view only what it renders; full evidence remains in SQLite/API.
         if data["research"]:
@@ -87,7 +92,10 @@ def company_view(ticker: str, request: Request):
         if data["business"]:
             data["business"].pop("profile_text", None)
         data["analysis_job"] = job_progress(request).latest(data["ticker"])
-        return data
+        with request.app.state.profile_lock:
+            data["context_pending"] = data["ticker"] in request.app.state.profile_pending
+        # Cached sections are already JSON-native; avoid a second recursive encoder pass.
+        return JSONResponse(data)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
 
@@ -163,6 +171,42 @@ def start_business(ticker: str, request: Request, background_tasks: BackgroundTa
                 request.app.state.profile_pending.discard(ticker)
     background_tasks.add_task(load_profile)
     return {"status": "loading"}
+
+
+@app.post("/api/company/{ticker}/complete", status_code=202)
+def complete_company(ticker: str, request: Request, background_tasks: BackgroundTasks):
+    try:
+        ticker = normalize_ticker(ticker)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    from finn.services.completion import fill_context, missing_sections
+    pipeline = request.app.state.pipeline
+    missing = missing_sections(pipeline.store, ticker)
+    pending = False
+    if any(missing[key] for key in ['business', 'financials', 'trajectory']):
+        with request.app.state.profile_lock:
+            pending = ticker in request.app.state.profile_pending
+            # Persist a cooldown so failures/unavailable disclosures cannot cause reload loops.
+            if not pending and not pipeline.store.get('completion-context-v1', ticker, max_age=1800):
+                pipeline.store.put('completion-context-v1', ticker, {'attempted': True})
+                request.app.state.profile_pending.add(ticker)
+                pending = True
+                def load_context():
+                    try:
+                        fill_context(pipeline, ticker)
+                    finally:
+                        with request.app.state.profile_lock:
+                            request.app.state.profile_pending.discard(ticker)
+                background_tasks.add_task(load_context)
+    progress = job_progress(request)
+    latest = progress.latest(ticker)
+    job = latest if latest and latest['status'] in {'queued', 'running'} else None
+    if missing['research'] and not job:
+        recent_failure = latest and latest['status'] == 'failed' and seconds_since(latest['updated_at']) < 1800
+        if not recent_failure:
+            job = pipeline.store.enqueue(ticker, {'max_documents': 6, 'max_calls': min(6, pipeline.settings.finn_max_model_calls), 'refresh': False})
+            job = progress.present(job, include_result=False)
+    return {'missing': missing, 'context_pending': pending, 'research_job': job}
 
 
 @app.get("/api/research/active")

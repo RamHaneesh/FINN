@@ -46,6 +46,9 @@ class Pipeline:
         previous_facts = [FinancialFact.model_validate(item) for item in previous.get("facts", [])]
         period = review_period(today, snapshot, previous_facts)
         selected = select_transcripts(links, period, today, max_documents)
+        if not selected:
+            self.store.put('research-availability-v1',ticker,{'status':'unavailable','checked_at':utc_now(),'reason':'No primary transcript links in the published source archive.'})
+            raise SourceError('No primary transcripts available in the published source archive')
         warnings = ["Transcript analysis is primary-source grounded. Financial snapshot/derived actuals use separately labeled standardized Screener tables; they are not direct filing extraction. Annual reports remain linked in the source library and are not parsed on the interactive path."]
         progress("parsing")
         parsed = []
@@ -57,7 +60,7 @@ class Pipeline:
                 warnings.append(f"Could not parse {link.kind.value}: {type(exc).__name__}; source {link.url}")
         if not parsed:
             raise SourceError("No usable primary PDFs were retrieved; inspect discovery links or source access")
-        model = Gemini(self.settings, self.store, min(max_calls if max_calls is not None else self.settings.finn_max_model_calls, self.settings.finn_max_model_calls))
+        model = Gemini(self.settings, self.store, min(max_calls if max_calls is not None else self.settings.finn_max_model_calls, self.settings.finn_max_model_calls), ticker=ticker)
         extractor = Extractor(model)
         # Preserve validated older commitments and their outcomes across incremental runs.
         narratives = {fingerprint(item): Narrative.model_validate(item) for item in previous.get("narratives", [])}

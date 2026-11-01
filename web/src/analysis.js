@@ -40,11 +40,12 @@ export function createAnalysisProgress({api,onSnapshot,onComplete,onOpen,onRetry
       card.className=`analysis-progress ${state}`;
       card.setAttribute('aria-busy',String(!!running));
       card.dataset.jobId=job.id;
-      card.innerHTML=`<div class="analysis-heading"><div><span class="eyebrow">${escape(job.ticker)} · MANAGEMENT NARRATIVE</span><h3>${running?'<span class="analysis-pulse"></span>':''}${escape(title)}</h3></div><span class="analysis-state">${job.status==='queued'?'QUEUED':job.status==='running'?'IN PROGRESS':job.status==='completed'?'SAVED':'NEEDS ATTENTION'}</span></div><p class="analysis-detail">${escape(detail)}</p><ol class="analysis-stages" aria-label="Analysis stages">${['Financials','Sources','Reading','Analysis','Compare'].map((label,index)=>`<li class="${index+1<step||job.status==='completed'?'done':index+1===step&&job.status==='running'?'current':''}"><span>${index+1<step||job.status==='completed'?'✓':index+1}</span>${label}</li>`).join('')}</ol><div class="analysis-timing"><span id="analysis-elapsed">${job.status==='queued'?'Queued':'Elapsed'} ${duration(value)}</span><span id="analysis-stage-status">${escape(time)}</span></div>${running?'<p class="analysis-leave-note">You can browse other companies. This analysis continues in the background.</p>':''}${job.status==='failed'?'<button type="button" class="button secondary" id="retry-analysis">Retry analysis</button>':''}`;
+      card.innerHTML=`<div class="analysis-heading"><h3>${running?'<span class="analysis-pulse"></span>Extracting guidance from primary transcripts…':escape(title)}</h3><span class="analysis-state">${job.status==='queued'?'QUEUED':running?'PROCESSING':'NEEDS ATTENTION'}</span></div><p class="analysis-detail">${escape(detail)}</p><div class="analysis-timing"><span id="analysis-elapsed">${job.status==='queued'?'Queued':'Elapsed'} ${duration(value)}</span><span id="analysis-stage-status">${escape(time)}</span></div>${job.status==='failed'?'<button type="button" class="button secondary" id="retry-analysis">Retry analysis</button>':''}`;
       document.querySelector('#retry-analysis')?.addEventListener('click',()=>onRetry(job.ticker));
     }
+    const awaiting=document.querySelector('#narrative-awaiting');if(awaiting)awaiting.hidden=!!record;
     const pending=[...jobs.values()].filter(record=>active(record.job));
-    background.hidden=!pending.length;
+    background.hidden=!pending.length||(!document.querySelector('#view-research').hidden&&!!record&&active(record.job));
     if(pending.length) {
       const record=pending.find(record=>record.job.status==='running')||pending[0];
       background.innerHTML=`<span class="analysis-pulse"></span><span>${escape(record.job.ticker)} · ${escape(record.connectionError?'Reconnecting':record.job.progress?.title||'Analysis queued')}${pending.length>1?` · ${pending.length} requests`:''}</span><span>View →</span>`;
@@ -91,6 +92,7 @@ export function createAnalysisProgress({api,onSnapshot,onComplete,onOpen,onRetry
   },1000);
   return {
     track, syncButtons,
+    mount(target) {target.appendChild(card);render();},
     select(symbol) {ticker=symbol;render();},
     clearSelection() {ticker=null;render();},
     isActive(symbol) {const record=latest(symbol);return !!record&&active(record.job);},

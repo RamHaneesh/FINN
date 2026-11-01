@@ -1,11 +1,20 @@
-.venv/
+# Local credentials and virtual environment
 .env
 .env.*
 !.env.example
+.venv/
 __pycache__/
-*.py[cod]
-.pytest_cache/
-data/
-tmp/
-node_modules/
-dist/
+
+# Temporary logs and SQLite transient journals/locks (not the database)
+*.log
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Local screenshots
+/screenshots/
+/tmp/**/*.png
+/tmp/**/*.jpg
+/tmp/**/*.jpeg
+
+# Intentionally tracked: data/finn.sqlite3, cached JSON, source PDFs and project docs.

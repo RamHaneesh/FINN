@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from finn.domain import DocumentKind, DocumentLink, normalize_ticker
 from finn.sources.http import PublicHTTP, SourceError, public_url
 from finn.storage import Store
+from finn.sources.universe import source_symbol
 
 
 class ScreenerDiscovery:
@@ -17,7 +18,7 @@ class ScreenerDiscovery:
         if cached is not None:
             return [DocumentLink.model_validate(item) for item in cached]
         for suffix in ["consolidated/", ""]:
-            url = f"https://www.screener.in/company/{ticker}/{suffix}"
+            url = f"https://www.screener.in/company/{source_symbol(ticker)}/{suffix}"
             try:
                 html = self.http.fetch(url, max_bytes=3_000_000)
             except SourceError:

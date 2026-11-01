@@ -1,24 +1,153 @@
 {
-  "description": "Mock demo portfolio; equal weights are illustrative and are not investment recommendations.",
+  "description": "Official FINN coverage universe: 35 companies. Legacy watchlist labels retain explicit current-source symbol mappings.",
   "companies": [
-    {"ticker": "RELIANCE", "sector": "Diversified energy and retail"},
-    {"ticker": "INFY", "sector": "IT services"},
-    {"ticker": "TCS", "sector": "IT services"},
-    {"ticker": "HDFCBANK", "sector": "Banking"},
-    {"ticker": "ICICIBANK", "sector": "Banking"},
-    {"ticker": "BAJFINANCE", "sector": "Consumer finance"},
-    {"ticker": "LT", "sector": "Engineering and construction"},
-    {"ticker": "MARUTI", "sector": "Automobiles"},
-    {"ticker": "SUNPHARMA", "sector": "Pharmaceuticals"},
-    {"ticker": "HINDUNILVR", "sector": "Consumer goods"},
-    {"ticker": "TITAN", "sector": "Consumer discretionary"},
-    {"ticker": "ULTRACEMCO", "sector": "Cement"},
-    {"ticker": "NTPC", "sector": "Power"},
-    {"ticker": "BHARTIARTL", "sector": "Telecommunications"},
-    {"ticker": "TRENT", "sector": "Retail"},
-    {"ticker": "DIXON", "sector": "Electronics manufacturing"},
-    {"ticker": "CAMS", "sector": "Financial infrastructure"},
-    {"ticker": "POLYCAB", "sector": "Electrical equipment"}
+    {
+      "ticker": "20MICRONS",
+      "sector": "Industrial minerals"
+    },
+    {
+      "ticker": "APOLLOHOSP",
+      "sector": "Hospitals and healthcare"
+    },
+    {
+      "ticker": "ASIANPAINT",
+      "sector": "Paints"
+    },
+    {
+      "ticker": "BAJFINANCE",
+      "sector": "Consumer finance"
+    },
+    {
+      "ticker": "BHARTIARTL",
+      "sector": "Telecommunications"
+    },
+    {
+      "ticker": "BSE",
+      "sector": "Exchange infrastructure"
+    },
+    {
+      "ticker": "CAMS",
+      "sector": "Financial infrastructure"
+    },
+    {
+      "ticker": "COFORGE",
+      "sector": "IT services"
+    },
+    {
+      "ticker": "DIXON",
+      "sector": "Electronics manufacturing"
+    },
+    {
+      "ticker": "DMART",
+      "sector": "Food and grocery retail"
+    },
+    {
+      "ticker": "HAL",
+      "sector": "Aerospace and defence"
+    },
+    {
+      "ticker": "HAVELLS",
+      "sector": "Consumer electricals"
+    },
+    {
+      "ticker": "HDFCBANK",
+      "sector": "Banking"
+    },
+    {
+      "ticker": "HINDUNILVR",
+      "sector": "Consumer goods"
+    },
+    {
+      "ticker": "ICICIBANK",
+      "sector": "Banking"
+    },
+    {
+      "ticker": "INFY",
+      "sector": "IT services"
+    },
+    {
+      "ticker": "KAYNES",
+      "sector": "Electronics manufacturing"
+    },
+    {
+      "ticker": "LT",
+      "sector": "Engineering and construction"
+    },
+    {
+      "ticker": "MARUTI",
+      "sector": "Automobiles"
+    },
+    {
+      "ticker": "NTPC",
+      "sector": "Power"
+    },
+    {
+      "ticker": "PERSISTENT",
+      "sector": "IT services"
+    },
+    {
+      "ticker": "POLYCAB",
+      "sector": "Electrical equipment"
+    },
+    {
+      "ticker": "RELIANCE",
+      "sector": "Diversified energy and retail"
+    },
+    {
+      "ticker": "SEDEMAC",
+      "sector": "Automotive electronics"
+    },
+    {
+      "ticker": "SIEMENS",
+      "sector": "Industrial engineering"
+    },
+    {
+      "ticker": "SRF",
+      "sector": "Chemicals and materials"
+    },
+    {
+      "ticker": "SUNPHARMA",
+      "sector": "Pharmaceuticals"
+    },
+    {
+      "ticker": "TATACAP",
+      "sector": "Financial services"
+    },
+    {
+      "ticker": "TATAMOTORS",
+      "sector": "Passenger vehicles",
+      "source_ticker": "TMPV"
+    },
+    {
+      "ticker": "TCS",
+      "sector": "IT services"
+    },
+    {
+      "ticker": "TITAN",
+      "sector": "Consumer discretionary"
+    },
+    {
+      "ticker": "TRENT",
+      "sector": "Retail"
+    },
+    {
+      "ticker": "ULTRACEMCO",
+      "sector": "Cement"
+    },
+    {
+      "ticker": "VBL",
+      "sector": "Beverages"
+    },
+    {
+      "ticker": "ZOMATO",
+      "sector": "Consumer internet",
+      "source_ticker": "ETERNAL"
+    }
   ],
-  "research_examples": ["INFY", "LT", "POLYCAB", "PERSISTENT"]
+  "research_examples": [
+    "INFY",
+    "LT",
+    "POLYCAB",
+    "PERSISTENT"
+  ]
 }
