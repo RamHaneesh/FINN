@@ -59,15 +59,18 @@ FastAPI Server (Python 3.12)
 
 - **AI extracts, code calculates:** Gemini extracts management statements, figures, and dates from transcripts. Python handles financial calculations and compares management's targets with reported results.
 - **Evidence before completeness:** When a statement is unclear or cannot be compared with reported financial data, FINN displays it as commentary with a source citation rather than assigning a Met/Missed result.
-- **Fast access to common companies:** Financial data for 35 NSE-listed companies is stored in a local SQLite database. Other companies can be researched through on-demand extraction.
+- **Fast access to common companies:** Financial data for 50 NSE-listed companies is stored in a local SQLite database. Other companies can be researched through on-demand extraction.
+- **Separate Push and Pull universes:** Push uses a fixed 18-company portfolio in `config/portfolio.json`, mirrored in SQLite's `push_portfolio` table. The independent `config/pull_universe.json` defines the initial 50-company warm-up list; searching other tickers never changes Push membership.
+- **Pull cache retention:** Strictly 50 dynamic company slots, including portfolio tickers when opened in Pull. Every slot is eligible for least-recently searched eviction. Explicit company opens update recency; background polling does not. `research_cache` stores latest sections, `dated_cache` stores ticker/date versions and `company_access` tracks LRU metadata. Eviction removes Pull sections and owned extraction records. The separate `push_portfolio` and protected `push_cache` retain all 18 Push holdings and their price/filing/financial inputs. Raw PDF archives and usage logs are separate from the 50-company limit; this is not a total-disk quota.
 - **Research runs separately:** Basic company information and financial trends load first. Transcript analysis runs in the background so it does not hold up the rest of the page.
 
 ## 4. Performance and Testing
 
-- **Response time:** Cached company data returned in under 25 ms across 210 API requests, with a median of approximately 7 ms.
-- **Company coverage:** 35 companies have company profiles, financial snapshots, and five-year financial trends available in the cache.
+- **Response time:** The current local coverage/latency audit is recorded in `docs/coverage.md`. These are measured localhost responses, not a public/mobile latency guarantee.
+- **Company coverage:** 50 companies have profiles, financial snapshots and trajectory tables in the cache. Annual history is limited to what the source exposes (currently four observations for JIOFIN and three for Nestlé consolidated).
+- **Push portfolio:** Exactly 18 fixed companies: RELIANCE, TCS, HDFCBANK, INFY, DIXON, CAMS, NTPC, DMART, TRENT, LT, BHARTIARTL, MARUTI, HAL, ZOMATO, SUNPHARMA, BAJFINANCE, TATAMOTORS and SIEMENS.
 - **Transcript reports:** 34 companies have verified transcript reports. TRENT is marked as having no public transcript archive.
-- **Tests:** 39 backend unit tests and 3 automated UI checks pass.
+- **Tests:** 40 backend unit tests and 3 automated UI checks cover the pipelines, Push/Pull isolation, cache retention and progressive completion.
 
 ## 5. Mobile Reviewer Walkthrough
 

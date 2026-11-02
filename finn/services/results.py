@@ -51,9 +51,12 @@ def extract_headlines(pipeline, event_data):
 
 def enqueue_results(pipeline, limit=2):
     from finn.signals.classifier import classify
+    portfolio = {company['ticker'] for company in pipeline.store.push_portfolio()}
     candidates = {}
-    for records in pipeline.store.values("announcements-v1"):
+    for records in pipeline.store.push_values("announcements-v1"):
         for event in records:
+            if event['ticker'] not in portfolio:
+                continue
             category = classify(event["subject"], event["description"])
             if category["category"] == "results" and category["priority"] == "high" and event.get("source_url") and not pipeline.store.get("results-headlines-v1", event["event_id"]):
                 candidates[event["event_id"]] = event

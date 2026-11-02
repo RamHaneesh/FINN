@@ -27,7 +27,7 @@ class SymbolDirectory:
                 cached['symbols'].append({'ticker':company['ticker'],'name':snapshot.get('name',company['ticker']),
                                           'source_ticker':company.get('source_ticker',company['ticker'])})
             return cached
-        companies = json.loads((ROOT / "config/portfolio.json").read_text())["companies"]
+        companies = json.loads((ROOT / "config/pull_universe.json").read_text())["companies"]
         items = []
         for company in companies:
             snapshot = self.store.get("financials-v1", company["ticker"]) or {}

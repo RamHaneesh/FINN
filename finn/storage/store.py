@@ -53,7 +53,7 @@ class Store:
 
     def get(self, namespace: str, key: str, max_age: int | None = None):
         with self.connection() as db:
-            row = db.execute("SELECT payload,created FROM cache WHERE namespace=? AND key=?", (namespace, key)).fetchone()
+            row = db.execute(f"SELECT payload,created FROM {retention.table(namespace)} WHERE namespace=? AND key=?", (namespace, key)).fetchone()
         if row is None or (max_age is not None and time.time() - row["created"] > max_age):
             return None
         return json.loads(row["payload"])
@@ -61,14 +61,15 @@ class Store:
     def put(self, namespace: str, key: str, payload, ticker=None):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            created, encoded = time.time(), json.dumps(payload, default=str)
+            retention.mirror_push(db, namespace, key, payload, created)
             owner = ticker or (key if namespace in retention.TICKER_CACHES else None)
             if owner and not retention.register(db, owner):
                 return  # A background job must not resurrect an evicted ad-hoc company.
-            created, encoded = time.time(), json.dumps(payload, default=str)
-            db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (namespace, key, encoded, created))
+            db.execute(f"INSERT OR REPLACE INTO {retention.table(namespace)} VALUES (?,?,?,?)", (namespace, key, encoded, created))
             if owner:
                 if namespace in retention.SECTIONS or namespace == 'research-availability-v1':
-                    db.execute("DELETE FROM cache WHERE namespace='company-view-v1' AND key=?",(owner,))
+                    db.execute("DELETE FROM research_cache WHERE namespace='company-view-v1' AND key=?",(owner,))
                 db.execute('INSERT OR IGNORE INTO cache_owners VALUES(?,?,?)',(namespace,key,owner))
                 if namespace in retention.SECTIONS:
                     db.execute('INSERT OR REPLACE INTO dated_cache VALUES(?,?,?,?,?)',(namespace,owner,retention.dated(payload,created),encoded,created))
@@ -80,6 +81,27 @@ class Store:
             retention.register(db,ticker,opened=True)
             retention.prune(db)
 
+    def push_portfolio(self):
+        """Read fixed Push membership independently of company_access and cache."""
+        with self.connection() as db:
+            rows = db.execute('SELECT ticker,sector,source_ticker FROM push_portfolio ORDER BY position').fetchall()
+        return [dict(row) for row in rows]
+
+    def get_push(self, namespace, key):
+        with self.connection() as db:
+            row = db.execute('SELECT payload FROM push_cache WHERE namespace=? AND key=?',(namespace,key)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def push_values(self, namespace):
+        with self.connection() as db:
+            rows = db.execute('SELECT payload FROM push_cache WHERE namespace=? ORDER BY created DESC',(namespace,)).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def research_slots(self):
+        with self.connection() as db:
+            rows = db.execute('SELECT ticker,last_opened FROM company_access WHERE retained=1 ORDER BY last_opened,ticker').fetchall()
+        return [dict(row) for row in rows]
+
     def get_dated(self, namespace, ticker, as_of):
         with self.connection() as db:
             row=db.execute('SELECT payload FROM dated_cache WHERE namespace=? AND ticker=? AND as_of=?',(namespace,ticker,as_of)).fetchone()
@@ -87,7 +109,7 @@ class Store:
 
     def values(self, namespace: str):
         with self.connection() as db:
-            rows = db.execute("SELECT payload FROM cache WHERE namespace=? ORDER BY created DESC", (namespace,)).fetchall()
+            rows = db.execute(f"SELECT payload FROM {retention.table(namespace)} WHERE namespace=? ORDER BY created DESC", (namespace,)).fetchall()
         return [json.loads(row["payload"]) for row in rows]
 
     def enqueue(self, ticker: str, payload: dict) -> dict:

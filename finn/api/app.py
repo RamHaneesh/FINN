@@ -134,8 +134,9 @@ def health(request: Request):
 
 
 @app.get("/api/portfolio")
-def portfolio():
-    return json.loads((ROOT / "config" / "portfolio.json").read_text())
+def portfolio(request: Request):
+    config = json.loads((ROOT / "config" / "portfolio.json").read_text())
+    return {**config, 'companies': request.app.state.pipeline.store.push_portfolio()}
 
 
 @app.post("/api/research", status_code=202)

@@ -2,6 +2,8 @@
 
 FastAPI serves FINN's mobile interface, API, cached data and one embedded research worker from a single Render web service. No Vercel project or frontend build is required.
 
+Current configuration separates the fixed 18-stock Push portfolio (`push_portfolio` plus protected `push_cache`) from 50 fully dynamic Pull slots (`research_cache`, dated sections and `company_access` LRU metadata). No Pull company is pinned. A 51st search evicts the least-recently searched Pull company without changing Push holdings or snapshots. The initial warm-up list in `config/pull_universe.json` does not resurrect evicted slots on restart. On Render Free, only the bundled data is restored after a host reset; runtime changes are temporary.
+
 ## Live service
 
 - Public URL: [FINN](https://finn-investment-agent-f3ra.onrender.com/)

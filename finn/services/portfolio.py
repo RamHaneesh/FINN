@@ -1,8 +1,6 @@
 from datetime import date, datetime, time, timedelta
-import json
 from zoneinfo import ZoneInfo
 
-from finn.config import ROOT
 from finn.domain import Announcement, PriceBar, normalize_ticker
 from finn.domain import Narrative, FinancialFact
 from finn.analysis import compare
@@ -14,12 +12,13 @@ from finn.sources.financials import FinancialSource
 from finn.services.filing_display import management_fields
 from finn.services.trajectory import cached_trajectory
 from finn.sources.profile import CACHE as PROFILE_CACHE
+from finn.sources.universe import COMPANIES
 
 
 class PortfolioService:
     def __init__(self, pipeline):
         self.pipeline, self.store = pipeline, pipeline.store
-        self.companies = json.loads((ROOT / "config/portfolio.json").read_text())["companies"]
+        self.companies = self.store.push_portfolio()
 
     def preferences(self):
         return self.store.get("preferences-v1", "default") or {"price_percent": 3., "volume_multiple": 2.}
@@ -27,7 +26,7 @@ class PortfolioService:
     def company(self, ticker):
         ticker = normalize_ticker(ticker)
         today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
-        portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
+        portfolio = next((company for company in COMPANIES if company["ticker"] == ticker), {})
         saved = self.store.get('company-view-v1',ticker)
         if saved and saved.get('as_of') == str(today) and saved.get('sector') == portfolio.get('sector'):
             return saved['data']
@@ -40,7 +39,7 @@ class PortfolioService:
             research["narratives"] = [item.model_dump(mode="json") for item in statements]
             research["comparisons"] = [compare(item, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date()).model_dump(mode="json") for item in statements]
             research["guidance_review"] = guidance_review(statements, facts, datetime.now(ZoneInfo("Asia/Kolkata")).date(), snapshot)
-        portfolio = next((company for company in self.companies if company["ticker"] == ticker), {})
+        portfolio = next((company for company in COMPANIES if company["ticker"] == ticker), {})
         result = {"ticker": ticker, "name": snapshot.get("name", ticker) if snapshot else (business or {}).get("name", ticker), "sector": portfolio.get("sector", "NSE-listed company"), "snapshot": snapshot, "research": research,
                 "trajectory": cached_trajectory(self.store, ticker, snapshot), "business": business,
                 "research_availability": self.store.get('research-availability-v1',ticker)}
@@ -54,17 +53,17 @@ class PortfolioService:
         items, routine, warnings, portfolio, refreshed = [], [], [], [], []
         events = {}
         portfolio_symbols = {company["ticker"] for company in self.companies}
-        for window in self.store.values("announcements-v1"):
+        for window in self.store.push_values("announcements-v1"):
             for event in window:
                 if event["ticker"] in portfolio_symbols:
                     events[event["event_id"]] = event
         for company in self.companies:
             ticker = company["ticker"]
-            raw_bars = self.store.get("prices-v1", ticker) or []
+            raw_bars = self.store.get_push("prices-v1", ticker) or []
             bars = [PriceBar.model_validate(bar) for bar in raw_bars]
             last, previous = (bars[-1] if bars else None), (bars[-2] if len(bars) > 1 else None)
             portfolio.append({**company, "close": last.close if last else None, "change": round((last.close / previous.close - 1) * 100, 2) if last and previous else None, "date": str(last.date) if last else None})
-            saved = self.store.get("attention-v1", ticker)
+            saved = self.store.get_push("attention-v1", ticker)
             if saved:
                 refreshed.append(saved["refreshed_at"])
                 warnings.extend(f"{ticker}: {warning}" for warning in saved.get("warnings", []))
@@ -89,8 +88,8 @@ class PortfolioService:
             if classification["category"] == "management_change":
                 item["management"] = management_fields(event.subject, event.description)
             if classification["category"] == "results" and classification["priority"] == "high":
-                primary = self.store.get("results-headlines-v1", event.event_id)
-                snapshot = self.store.get("financials-v1", event.ticker)
+                primary = self.store.get_push("results-headlines-v1", event.event_id)
+                snapshot = self.store.get_push("financials-v1", event.ticker)
                 standardized = FinancialSource.headlines(snapshot, event.published_at.date()) if snapshot else None
                 if primary:
                     primary = dict(primary)

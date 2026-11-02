@@ -139,15 +139,20 @@ class AutomaticCompletion(unittest.TestCase):
                         store.put('research-v1',ticker,{'narratives':[],'facts':[],'documents':[],'coverage':'processed'})
                     with patch('finn.sources.profile.ProfileSource.fetch',side_effect=profile) as profiles, patch('finn.sources.financials.FinancialSource.fetch',side_effect=financial) as financials, patch('finn.models.Gemini') as model, patch.object(app.state.pipeline,'discover') as discover:
                         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
-                            first=(await client.post('/api/company/NEW/complete')).json()
-                            second=(await client.post('/api/company/NEW/complete')).json()
+                            portfolio_before=(await client.get('/api/portfolio')).json()['companies']
+                            self.assertEqual(len(portfolio_before),18)
+                            await client.get('/api/company/CLEAN?opened=true')
+                            first=(await client.post('/api/company/CLEAN/complete')).json()
+                            second=(await client.post('/api/company/CLEAN/complete')).json()
                             self.assertEqual(first['research_job']['id'],second['research_job']['id'])
                             self.assertEqual(profiles.call_count,1)
                             self.assertEqual(financials.call_count,1)
-                            saved=(await client.get('/api/company/NEW')).json()
+                            saved=(await client.get('/api/company/CLEAN')).json()
                             self.assertTrue(saved['trajectory']['rows'])
                             self.assertFalse(saved['context_pending'])
                             self.assertEqual(saved['business']['status'],'ready')
+                            self.assertEqual((await client.get('/api/portfolio')).json()['companies'],portfolio_before)
+                            self.assertNotIn('CLEAN',{c['ticker'] for c in (await client.get('/api/digest')).json()['portfolio']})
                             financial('FINONLY'); profile('FINONLY')
                             result=(await client.post('/api/company/FINONLY/complete')).json()
                             self.assertFalse(result['context_pending'])

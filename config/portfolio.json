@@ -1,64 +1,16 @@
 {
-  "description": "Official FINN coverage universe: 35 companies. Legacy watchlist labels retain explicit current-source symbol mappings.",
+  "description": "Fixed Push portfolio: 18 diverse companies. Pull research never changes membership.",
   "companies": [
     {
-      "ticker": "20MICRONS",
-      "sector": "Industrial minerals"
+      "ticker": "RELIANCE",
+      "sector": "Diversified energy and retail"
     },
     {
-      "ticker": "APOLLOHOSP",
-      "sector": "Hospitals and healthcare"
-    },
-    {
-      "ticker": "ASIANPAINT",
-      "sector": "Paints"
-    },
-    {
-      "ticker": "BAJFINANCE",
-      "sector": "Consumer finance"
-    },
-    {
-      "ticker": "BHARTIARTL",
-      "sector": "Telecommunications"
-    },
-    {
-      "ticker": "BSE",
-      "sector": "Exchange infrastructure"
-    },
-    {
-      "ticker": "CAMS",
-      "sector": "Financial infrastructure"
-    },
-    {
-      "ticker": "COFORGE",
+      "ticker": "TCS",
       "sector": "IT services"
     },
     {
-      "ticker": "DIXON",
-      "sector": "Electronics manufacturing"
-    },
-    {
-      "ticker": "DMART",
-      "sector": "Food and grocery retail"
-    },
-    {
-      "ticker": "HAL",
-      "sector": "Aerospace and defence"
-    },
-    {
-      "ticker": "HAVELLS",
-      "sector": "Consumer electricals"
-    },
-    {
       "ticker": "HDFCBANK",
-      "sector": "Banking"
-    },
-    {
-      "ticker": "HINDUNILVR",
-      "sector": "Consumer goods"
-    },
-    {
-      "ticker": "ICICIBANK",
       "sector": "Banking"
     },
     {
@@ -66,52 +18,53 @@
       "sector": "IT services"
     },
     {
-      "ticker": "KAYNES",
+      "ticker": "DIXON",
       "sector": "Electronics manufacturing"
     },
     {
-      "ticker": "LT",
-      "sector": "Engineering and construction"
-    },
-    {
-      "ticker": "MARUTI",
-      "sector": "Automobiles"
+      "ticker": "CAMS",
+      "sector": "Financial infrastructure"
     },
     {
       "ticker": "NTPC",
       "sector": "Power"
     },
     {
-      "ticker": "PERSISTENT",
-      "sector": "IT services"
+      "ticker": "DMART",
+      "sector": "Food and grocery retail"
     },
     {
-      "ticker": "POLYCAB",
-      "sector": "Electrical equipment"
+      "ticker": "TRENT",
+      "sector": "Retail"
     },
     {
-      "ticker": "RELIANCE",
-      "sector": "Diversified energy and retail"
+      "ticker": "LT",
+      "sector": "Engineering and construction"
     },
     {
-      "ticker": "SEDEMAC",
-      "sector": "Automotive electronics"
+      "ticker": "BHARTIARTL",
+      "sector": "Telecommunications"
     },
     {
-      "ticker": "SIEMENS",
-      "sector": "Industrial engineering"
+      "ticker": "MARUTI",
+      "sector": "Automobiles"
     },
     {
-      "ticker": "SRF",
-      "sector": "Chemicals and materials"
+      "ticker": "HAL",
+      "sector": "Aerospace and defence"
+    },
+    {
+      "ticker": "ZOMATO",
+      "sector": "Consumer internet",
+      "source_ticker": "ETERNAL"
     },
     {
       "ticker": "SUNPHARMA",
       "sector": "Pharmaceuticals"
     },
     {
-      "ticker": "TATACAP",
-      "sector": "Financial services"
+      "ticker": "BAJFINANCE",
+      "sector": "Consumer finance"
     },
     {
       "ticker": "TATAMOTORS",
@@ -119,29 +72,8 @@
       "source_ticker": "TMPV"
     },
     {
-      "ticker": "TCS",
-      "sector": "IT services"
-    },
-    {
-      "ticker": "TITAN",
-      "sector": "Consumer discretionary"
-    },
-    {
-      "ticker": "TRENT",
-      "sector": "Retail"
-    },
-    {
-      "ticker": "ULTRACEMCO",
-      "sector": "Cement"
-    },
-    {
-      "ticker": "VBL",
-      "sector": "Beverages"
-    },
-    {
-      "ticker": "ZOMATO",
-      "sector": "Consumer internet",
-      "source_ticker": "ETERNAL"
+      "ticker": "SIEMENS",
+      "sector": "Industrial engineering"
     }
   ],
   "research_examples": [

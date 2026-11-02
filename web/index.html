@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23173e35'/%3E%3Cpath d='M21 45V19h25M21 31h19' stroke='%23d5ed9a' stroke-width='7' fill='none'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/assets/app.css"><link rel="stylesheet" href="/assets/theme.css?v=20261101-universe-35"><script type="module" src="/assets/app.js?v=20261101-universe-35"></script>
+  <link rel="stylesheet" href="/assets/app.css"><link rel="stylesheet" href="/assets/theme.css?v=20261101-universe-35"><script type="module" src="/assets/app.js?v=20261103-push18-pull50"></script>
 </head>
 <body>
 <svg class="sprite" aria-hidden="true"><symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6L10 14m0-9H5v15h15v-5"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></symbol><symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 5 7 7-7 7"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol></svg>
@@ -16,7 +16,7 @@
   <a href="#digest" class="brand" data-home aria-label="FINN home"><span class="brand-mark">F<span>.</span></span><span>FINN<span class="brand-caption">INVESTMENT INTELLIGENCE</span></span></a>
   <span class="nav-label">WORKSPACE</span>
   <nav><button class="nav-button active" data-view="digest"><svg><use href="#i-grid"/></svg>Push Digest<span class="nav-dot"></span></button><button class="nav-button" data-view="research"><svg><use href="#i-search"/></svg>Pull Deep Dive</button></nav>
-  <div class="rail-note"><span class="live-dot"></span>35 companies watched<p>The important changes.<br>The evidence behind them.</p></div>
+  <div class="rail-note"><span class="live-dot"></span><span id="portfolio-size">18</span> portfolio companies<p>The important changes.<br>The evidence behind them.</p></div>
   <div class="rail-footer"><span class="avatar">EH</span><div>ENAM Holdings<small>Build challenge · FINN</small></div></div>
 </aside>
 <div class="workspace">
@@ -32,7 +32,7 @@
         <div id="feed" class="feed" aria-live="polite"></div>
         <details class="routine-panel" id="routine-panel"><summary><span>Routine & lower-priority filings <span id="routine-count" class="count">0</span></span><svg><use href="#i-chevron"/></svg></summary><p class="muted">Kept for context. Collapsed to protect your attention.</p><div id="routine-list"></div></details>
         <p class="source-note">Exchange filings · End-of-day prices · Source links on every card</p>
-      </div><aside class="watch-column"><div class="panel watch-panel"><div class="section-heading"><h2>Your watchlist</h2><span class="count">35</span></div><p class="muted">Across sectors. Latest saved close.</p><div id="watchlist"></div></div></aside></div>
+      </div><aside class="watch-column"><div class="panel watch-panel"><div class="section-heading"><h2>Your watchlist</h2><span class="count" id="portfolio-count">18</span></div><p class="muted">Across sectors. Latest saved close.</p><div id="watchlist"></div></div></aside></div>
     </section>
     <section id="view-research" class="view" hidden>
       <div class="page-heading"><div><p class="eyebrow">FROM NARRATIVE TO EVIDENCE</p><h1>Pull Deep Dive<span class="heading-dot">.</span></h1><p class="subtitle">What management said. What the numbers show.</p></div></div>

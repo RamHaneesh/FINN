@@ -1,8 +1,9 @@
-"""Explicit source symbols for legacy labels in the configured coverage universe."""
+"""Fixed Push membership and an initial, unpinned Pull warm-up list."""
 import json
 from finn.config import ROOT
 
-COMPANIES = json.loads((ROOT/'config/portfolio.json').read_text())['companies']
+COMPANIES = json.loads((ROOT/'config/pull_universe.json').read_text())['companies']
+PUSH_COMPANIES = json.loads((ROOT/'config/portfolio.json').read_text())['companies']
 SOURCE_SYMBOLS = {item['ticker']:item.get('source_ticker',item['ticker']) for item in COMPANIES}
 
 
