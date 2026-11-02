@@ -6,6 +6,8 @@
 [**Live Mobile Demo**](https://finn-investment-agent-f3ra.onrender.com/) · No login required
 
 ---
+> [!NOTE]
+> docs/AI_BUILD_CHAT_HISTORY.md and docs/ai_build_history.md contain identical chat histories and differ only in filename
 
 ## 1. What I Built
 
