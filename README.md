@@ -165,3 +165,33 @@ python -m unittest discover -s tests -v
 # UI tests (requires Node.js)
 node --test tests/test_analysis_ui.mjs tests/test_company_ui.mjs tests/test_completion_ui.mjs
 ```
+
+
+### Automatic Push refresh
+
+Run with `python -m scripts.serve` to enable the embedded worker and daily scheduler.
+The fixed 18-company Push portfolio refreshes daily at **6:30 pm IST**, including weekends
+(prices may reflect the previous trading session). The scheduler checks every 15 seconds
+and queues fetching on the existing worker; busy research jobs can delay execution.
+SQLite prevents duplicate scheduled runs for the same IST date across restarts.
+Starting after 6:30 pm catches up that day once; older missed days are not replayed.
+Users can retry failed refreshes or refresh anytime with **Refresh**. Manual and scheduled
+refreshes bypass price/filing fetch caches and share an active portfolio refresh job.
+Visible digest screens read saved results every 60 seconds and when returning to the app;
+these checks do not fetch sources or call Gemini. The server process must remain running.
+The daily marker persists with SQLite; resetting ephemeral storage resets that marker.
+
+
+### Push alert retention
+
+Push filings and market-move alerts have a separate 90-day archive, keyed by event ID.
+Refreshes fetch 90 days of filings and calculate historical market signals in code;
+repeated fetches update existing events rather than duplicating them. The digest remains
+limited to the latest 30 days (24 hours by default). The latest EOD signal can remain
+active between trading sessions, but is never displayed beyond 30 days.
+Expired Push alerts and duplicate alert payloads in source snapshots are deleted at
+startup, hourly while the server runs, and after portfolio refreshes. Retention uses the
+event date, not the download date. Available history fills on the next successful refresh;
+source failures do not erase previously saved, unexpired alerts.
+Financial history, price history, primary transcript files, extracted evidence and
+narrative comparisons are excluded from this cleanup and retain their separate research-cache policy.

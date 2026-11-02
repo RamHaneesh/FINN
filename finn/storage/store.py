@@ -102,6 +102,22 @@ class Store:
             rows = db.execute('SELECT ticker,last_opened FROM company_access WHERE retained=1 ORDER BY last_opened,ticker').fetchall()
         return [dict(row) for row in rows]
 
+    def save_push_alerts(self, items):
+        from finn.storage import push_alerts
+        with self.connection() as db:
+            push_alerts.save(db, 'market', [item for item in items if item['ticker'] in retention.PUSH])
+
+    def push_alerts(self, kind, days=30):
+        cutoff = time.time() - min(days, 90) * 86400
+        with self.connection() as db:
+            rows = db.execute('SELECT payload FROM push_alerts WHERE kind=? AND occurred>=? ORDER BY occurred DESC', (kind, cutoff)).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def prune_push_alerts(self, now=None):
+        from finn.storage import push_alerts
+        with self.connection() as db:
+            push_alerts.prune(db, now)
+
     def get_dated(self, namespace, ticker, as_of):
         with self.connection() as db:
             row=db.execute('SELECT payload FROM dated_cache WHERE namespace=? AND ticker=? AND as_of=?',(namespace,ticker,as_of)).fetchone()
@@ -127,6 +143,22 @@ class Store:
             job_id, now = uuid4().hex, utc_now()
             db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?)", (job_id, key, ticker, json.dumps(payload), "queued", "queued", now, now, None, None))
             row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return self._job(row)
+
+    def enqueue_daily_refresh(self, day: str):
+        """Atomically record the IST day and queue (or reuse) a portfolio job."""
+        payload = {"_kind": "refresh"}
+        key = fingerprint({"ticker": "PORTFOLIO", **payload})
+        with self.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM cache WHERE namespace='daily-refresh-v1' AND key=?", (day,)).fetchone():
+                return None
+            row = db.execute("SELECT * FROM jobs WHERE request_key=? AND status IN ('queued','running')", (key,)).fetchone()
+            if row is None:
+                job_id, now = uuid4().hex, utc_now()
+                db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?)", (job_id, key, "PORTFOLIO", json.dumps(payload), "queued", "queued", now, now, None, None))
+                row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            db.execute("INSERT INTO cache VALUES (?,?,?,?)", ("daily-refresh-v1", day, json.dumps({"job_id": row["id"]}), time.time()))
         return self._job(row)
 
     def claim(self) -> dict | None:

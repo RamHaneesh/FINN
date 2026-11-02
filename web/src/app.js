@@ -1,7 +1,7 @@
 import {createCompanyCompletion} from './completion.js?v=20261101-universe-35';
-import {resultHeadline} from './feed.js';
+import {resultHeadline,digestSections,sourceDescriptor,isMarketMove,eventFilterOptions} from './feed.js?v=20261103-digest-layout-2';
 import {businessHtml,trajectoryHtml} from './company.js?v=20261101-universe-35';
-import {createTickerSearch} from './search.js';
+import {createTickerSearch} from './search.js?v=20261103-search-8';
 import {createAnalysisProgress} from './analysis.js?v=20261101-progressive-3';
 const $ = s => document.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -11,7 +11,7 @@ const number = value => value == null ? '—' : Number(value).toLocaleString('en
 const date = value => value ? new Date(value).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}) : 'Date not disclosed';
 const period = value => value ? new Date(value).toLocaleDateString('en-IN', {month:'short',year:'numeric',timeZone:'Asia/Kolkata'}) : 'Period not established';
 const labels = {revenue:'Revenue',ebitda:'EBITDA',pbt:'PBT',pat:'PAT',revenue_growth_yoy:'Revenue growth · YoY',revenue_growth_qoq:'Revenue growth · QoQ',ebitda_margin:'EBITDA margin',results:'Results',management_change:'Management',litigation:'Litigation',fund_raise:'Capital raise','M&A':'M&A',price:'Price move',volume:'Volume spike',credit_rating:'Credit rating',unclassified:'Routine'};
-const state = {digest:null,filter:'all',ticker:'INFY',company:null,polling:new Set(),citations:[],requestId:0,digestRequest:0,resetVersion:0,startingAnalysis:new Set()};
+const state = {digest:null,filter:'all',eventFilter:'all',ticker:'INFY',company:null,polling:new Set(),citations:[],requestId:0,digestRequest:0,resetVersion:0,startingAnalysis:new Set()};
 async function api(path, options={}) { const r = await fetch(path,{...options,headers:{'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(12000)}); const data = await r.json(); if(!r.ok)throw new Error(data.detail || `Request failed (${r.status})`); return data; }
 function status(selector,text,error=false){const el=$(selector);el.textContent=text;el.className=`status-line${error?' error':''}`;}
 function toast(text){$('#toast').textContent=text;$('#toast').hidden=false;setTimeout(()=>$('#toast').hidden=true,3500);}
@@ -27,9 +27,9 @@ function showView(view,{smooth=false,updateHash=true}={}) {
 function resetHome(event) {
   if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
   event.preventDefault();
-  state.resetVersion++;state.requestId++;state.filter='all';state.ticker='INFY';state.company=null;
+  state.resetVersion++;state.requestId++;state.filter='all';state.eventFilter='all';state.ticker='INFY';state.company=null;
   $('#window-select').value='24';
-  document.querySelectorAll('[data-filter]').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
+  syncDigestFilters();
   document.querySelectorAll('details[open]').forEach(el=>el.open=false);
   if($('#evidence-dialog').open)$('#evidence-dialog').close();
   if($('#preferences-dialog').open)$('#preferences-dialog').close();
@@ -39,7 +39,7 @@ function resetHome(event) {
 document.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click',resetHome));
 document.querySelectorAll('[data-view]').forEach(el=>el.onclick=()=>showView(el.dataset.view));
 window.addEventListener('hashchange',()=>{if(['digest','research'].includes(location.hash.slice(1)))showView(location.hash.slice(1),{updateHash:false});});
-function resultTable(snapshot){if(!snapshot?.metrics)return '<p class="muted">Headline extraction is queued. Values appear when supported by the filing or saved financial table.</p>';return `<table class="results-table"><thead><tr><th>₹ crore · ${esc(snapshot.latest_period)}</th><th>Actual</th><th>QoQ</th><th>YoY</th></tr></thead><tbody>${snapshot.metrics.map(m=>`<tr><td>${esc(m.label)}${m.derived?' *':m.source_type==='standardized_table'?' †':''}</td><td>${number(m.value)}</td><td>${delta(m.qoq)}</td><td>${delta(m.yoy)}</td></tr>`).join('')}</tbody></table>${snapshot.metrics.some(m=>m.derived)?'<p class="muted">* Derived EBITDA; see the company snapshot for method.</p>':''}${snapshot.source_type==='mixed'?'<p class="muted">† Standardized table. Other values verified against the filing.</p>':''}`;}
+function resultTable(snapshot,compact=false){if(!snapshot?.metrics)return '<p class="muted">Headline extraction is queued. Values appear when supported by the filing or saved financial table.</p>';return `<table class="results-table"><thead><tr><th>₹ crore · ${esc(snapshot.latest_period)}</th><th>Actual</th><th>QoQ</th><th>YoY</th></tr></thead><tbody>${snapshot.metrics.map(m=>`<tr><td>${esc(m.label)}${m.derived?' *':m.source_type==='standardized_table'?' †':''}</td><td>${number(m.value)}</td><td>${delta(m.qoq)}</td><td>${delta(m.yoy)}</td></tr>`).join('')}</tbody></table>${!compact&&snapshot.metrics.some(m=>m.derived)?'<p class="muted">* Derived EBITDA; see the company snapshot for method.</p>':''}${!compact&&snapshot.source_type==='mixed'?'<p class="muted">† Standardized table. Other values verified against the filing.</p>':''}`;}
 function conciseFiling(item) {
   let text=String(item.reason||'').replace(/^.*?has (?:informed|submitted to) the Exchange(?: about| regarding)?\s*/i,'').replace(/^.*?has submitted.*?Exchange\s*[:,.-]?\s*/i,'').trim();
   if(!text||text.toLowerCase()===item.title.toLowerCase()||/^(change in management|potentially material disclosure)/i.test(text))return '';
@@ -47,7 +47,7 @@ function conciseFiling(item) {
 }
 const compactNumber=value=>Number(value).toLocaleString('en-US',{notation:'compact',maximumFractionDigits:2});
 function signalBody(item) {
-  if(item.category==='results')return `<h3>${esc(resultHeadline(item,number))}</h3>${resultTable(item.financials)}${item.financials?.source_type==='standardized_table'?'<span class="filing-data-source">Standardized financial table</span>':''}`;
+  if(item.category==='results')return `<h3>${esc(resultHeadline(item,number))}</h3>${resultTable(item.financials,true)}`;
   if(item.category==='management_change') {
     const m=item.management;
     return m?`<dl class="management-fields"><div><dt>Person</dt><dd>${esc(m.person)}</dd></div><div><dt>Executive role</dt><dd>${esc(m.role)}</dd></div><div><dt>Action</dt><dd>${esc(m.action)}</dd></div></dl>`:`<h3>${esc(conciseFiling(item)||'Executive & Key Managerial Personnel change filed')}</h3>`;
@@ -60,14 +60,72 @@ function signalBody(item) {
   return generic&&summary?`<h3>${esc(summary)}</h3>`:`<h3>${esc(item.title)}</h3>${summary?`<p>${esc(summary)}</p>`:''}`;
 }
 function badgeTone(item){return item.category==='volume'?'badge-amber':item.category==='results'?'badge-blue':item.category==='management_change'?'badge-purple':item.category==='price'?((item.market?.change_percent??0)<0?'badge-crimson':'badge-emerald'):'badge-neutral';}
-function card(item){return `<article class="signal-card"><div class="card-inner"><div class="card-meta signal-header"><div class="company-label"><span class="ticker-badge">${esc(item.ticker)}</span><span class="pill ${badgeTone(item)}">${esc(labels[item.category]||item.category||'Signal')}</span></div><button class="deep-dive-button" data-ticker="${esc(item.ticker)}" aria-label="Deep dive into ${esc(item.ticker)}">Deep dive →</button></div><div class="signal-provenance"><time datetime="${esc(item.occurred_at)}">${date(item.occurred_at)}</time>${item.source_url?`<a href="${safeUrl(item.source_url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(item.ticker)} source">Source ${icon('link')}</a>`:''}${item.related_sources?.length>1?`<span>· ${item.related_sources.length} filings</span>`:''}</div>${signalBody(item)}</div></article>`;}
+function sourceBadge(item) {
+  const source=sourceDescriptor(item.source_url);
+  return source?`<a class="source-badge" href="${safeUrl(source.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(item.ticker)} ${esc(source.label)} (opens in a new tab)">${esc(source.label)} ${icon('link')}</a>`:'';
+}
+function cardSourceContext(item) {
+  if(isMarketMove(item))return '';
+  if(item.category!=='results')return 'Material filing';
+  const f=item.financials;
+  if(!f?.metrics)return '';
+  const derived=f.metrics.some(m=>m.derived);
+  const standardized=f.source_type==='standardized_table'||f.source_type==='mixed'||f.metrics.some(m=>m.source_type==='standardized_table');
+  return `${standardized?'Standardized financials':'Filing financials'}${derived?' (*Derived EBITDA)':''}${f.source_type==='mixed'?' · † Standardized values; others filing-verified':''}`;
+}
+function card(item){
+  const context=cardSourceContext(item);
+  return `<article class="signal-card ${isMarketMove(item)?'market-card':item.category==='results'?'results-card':'filing-card'}"><div class="card-inner"><div class="card-meta signal-header"><div class="company-label"><span class="ticker-badge">${esc(item.ticker)}</span><span class="pill ${badgeTone(item)}">${esc(labels[item.category]||item.category||'Signal')}</span></div><div class="signal-header-actions"><time class="signal-date" datetime="${esc(item.occurred_at)}">${date(item.occurred_at)}</time><button class="deep-dive-button" data-ticker="${esc(item.ticker)}" aria-label="Deep dive into ${esc(item.ticker)}">Deep dive →</button></div></div>${signalBody(item)}<div class="signal-attribution">${sourceBadge(item)}${context?`<span class="source-context">${esc(context)}</span>`:''}${item.related_sources?.length>1?`<span class="source-context">${item.related_sources.length} filings</span>`:''}</div></div></article>`;
+}
 
 function openCompany(ticker){loadCompany(ticker,false,true);showView('research');}
-function bindTickers(){document.querySelectorAll('[data-ticker]').forEach(el=>{el.onclick=()=>openCompany(el.dataset.ticker);if(el.getAttribute('role')==='button')el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCompany(el.dataset.ticker);}};});}
-function renderDigest(){const d=state.digest;if(!d)return;$('#portfolio-size').textContent=d.portfolio.length;$('#portfolio-count').textContent=d.portfolio.length;const signals=d.items.filter(i=>state.filter==='all'||(state.filter==='market'?['price','volume'].includes(i.category):i.category===state.filter));$('#signal-count').textContent=d.items.length;$('#overview').innerHTML=`<span><strong>${d.material_count}</strong> Material Alerts</span><span><strong>${d.items.filter(i=>['price','volume'].includes(i.category)).length}</strong> Market Moves</span><span><strong>${d.routine.length}</strong> Routine Filtered</span>`;$('#feed').innerHTML=signals.length?signals.map(card).join(''):`<div class="empty-state"><span class="empty-icon">${icon('check')}</span><h3>${state.filter==='all'?'Nothing new needs your attention.':'No matching signals in this window.'}</h3><p>${d.covered_count?'The feed stays quiet when saved data contains no matching triggers. Explore a longer window or research a company.':'Refresh your portfolio to begin tracking exchange filings and EOD moves.'}</p><button class="button secondary" id="longer-window">Explore last 7 days ${icon('arrow')}</button></div>`;$('#routine-count').textContent=d.routine.length;$('#routine-list').innerHTML=d.routine.length?d.routine.map(i=>`<div class="routine-row"><div><strong>${esc(i.ticker)} · ${esc(labels[i.category]||i.category.replaceAll('_',' '))}</strong>${esc(i.title)}</div><a href="${safeUrl(i.source_url)}" target="_blank" rel="noopener noreferrer">${icon('link')}</a></div>`).join(''):'<p class="muted">No lower-priority filings in this window.</p>';$('#watchlist').innerHTML=d.portfolio.map(c=>`<div class="watch-row" role="button" tabindex="0" data-ticker="${esc(c.ticker)}"><div><strong>${esc(c.ticker)}</strong><span class="watch-sector">${esc(c.sector)}</span></div><div class="watch-price">${number(c.close)}<span class="watch-change ${c.change<0?'negative':'positive'}">${c.change==null?'Not refreshed':`${c.change>0?'+':''}${number(c.change)}%`}</span></div></div>`).join('');$('#longer-window')?.addEventListener('click',()=>{$('#window-select').value='168';loadDigest();});const warnings=d.warnings.length?` · ${d.warnings.length} source gaps`:'';status('#digest-status',`Latest refresh ${d.refreshed_at?date(d.refreshed_at):'pending'} · ${d.covered_count}/${d.portfolio.length} portfolio companies covered${warnings}`);$('#price-threshold').value=d.settings.price_percent;$('#volume-threshold').value=d.settings.volume_multiple;bindTickers();}
+function bindTickers(){document.querySelectorAll('[data-ticker]').forEach(el=>{el.onclick=e=>{if(el.tagName==='A')e.preventDefault();openCompany(el.dataset.ticker);};if(el.getAttribute('role')==='button')el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCompany(el.dataset.ticker);}};});}
+function syncDigestFilters() {
+  document.querySelectorAll('[data-filter],[data-event-filter]').forEach(button=>{
+    const selected=button.dataset.eventFilter!==undefined?button.dataset.eventFilter===state.eventFilter:button.dataset.filter===state.filter;
+    button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));
+  });
+  $('#event-filters').hidden=state.filter!=='events';
+}
+function navigateDigest(target) {
+  let element;
+  if(target==='routine') {$('#routine-panel').open=true;element=$('#routine-panel summary');}
+  else {state.filter=target;state.eventFilter='all';renderDigest();element=$(target==='events'?'#company-events-heading':'#market-moves-heading');}
+  element.focus({preventScroll:true});
+  element.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+}
+function renderDigest(){
+  const d=state.digest;if(!d)return;
+  $('#event-filters').innerHTML=eventFilterOptions(d.items,state.eventFilter).map(option=>`<button class="filter" data-event-filter="${option.key}" aria-pressed="false"><span>${esc(option.label)}</span><span class="event-filter-count">${option.count}</span></button>`).join('');
+  syncDigestFilters();
+  $('#portfolio-size').textContent=d.portfolio.length;$('#portfolio-count').textContent=d.portfolio.length;
+  const groups=digestSections(d.items,state.filter,state.eventFilter),count=groups.events.length+groups.market.length;
+  $('#signal-count').textContent=count;
+  const shortcut=(target,total,label)=>`<button type="button" class="digest-shortcut" data-digest-target="${target}" aria-controls="${target==='routine'?'routine-panel':target==='events'?'company-events':'market-moves'}" ${target==='routine'?`aria-expanded="${$('#routine-panel').open}"`:`aria-pressed="${state.filter===target}"`}><strong>${total}</strong><span>${label}</span></button>`;
+  $('#overview').innerHTML=shortcut('events',d.material_count,'Material Alerts')+shortcut('market',d.items.filter(isMarketMove).length,'Market Moves')+shortcut('routine',d.routine.length,'Routine Filtered');
+  const section=(id,title,items,hidden)=>`<section class="digest-section" id="${id}" ${hidden?'hidden':''}><div class="digest-section-heading"><h3 id="${id}-heading" tabindex="-1">${title} <span class="count">${items.length}</span></h3></div><div class="digest-section-cards">${items.map(card).join('')||`<p class="digest-empty">No ${id==='company-events'?'matching company events':'market moves'} in this window.</p>`}</div></section>`;
+  $('#feed').innerHTML=section('company-events','Company events',groups.events,state.filter==='market'||state.filter==='all'&&!groups.events.length)+section('market-moves','Market moves',groups.market,state.filter==='events'||state.filter==='all'&&!groups.market.length)+(count===0?`<div class="digest-empty-action"><button class="button secondary" id="longer-window">Explore last 7 days ${icon('arrow')}</button></div>`:'');
+  if(state.filter==='all'&&!count)$('#feed').insertAdjacentHTML('afterbegin','<p class="digest-empty">Nothing new needs your attention in this window.</p>');
+  $('#routine-count').textContent=d.routine.length;
+  $('#routine-list').innerHTML=d.routine.length?d.routine.map(i=>`<div class="routine-row"><div><strong>${esc(i.ticker)} · ${esc(labels[i.category]||i.category.replaceAll('_',' '))}</strong>${esc(i.title)}</div>${sourceBadge(i)}</div>`).join(''):'<p class="muted">No lower-priority filings in this window.</p>';
+  const tapeScroll=$('#watchlist').scrollLeft;
+  $('#watchlist').innerHTML=d.portfolio.map(c=>`<div class="tape-ticker"><strong>${esc(c.ticker)}</strong><span class="tape-price"><span class="sr-only">Closing price </span>₹${number(c.close)}</span><span class="tape-change ${c.change==null?'':c.change<0?'negative':'positive'}"><span class="sr-only">Day change </span>${c.change==null?'—':`${c.change>0?'+':''}${number(c.change)}%`}</span></div>`).join('');
+  $('#longer-window')?.addEventListener('click',()=>{$('#window-select').value='168';loadDigest();});
+  $('#watchlist').scrollLeft=tapeScroll;
+  const warnings=d.warnings.length?` · ${d.warnings.length} source gaps`:'';status('#digest-status',`Latest refresh ${d.refreshed_at?date(d.refreshed_at):'pending'} · ${d.covered_count}/${d.portfolio.length} portfolio companies covered${warnings}`);$('#price-threshold').value=d.settings.price_percent;$('#volume-threshold').value=d.settings.volume_multiple;bindTickers();
+}
 async function loadDigest(){const id=++state.digestRequest;try{const digest=await api(`/api/digest?hours=${$('#window-select').value}`);if(id!==state.digestRequest)return;state.digest=digest;renderDigest();}catch(e){if(id===state.digestRequest)status('#digest-status',e.message,true);}}
 $('#window-select').onchange=loadDigest;
-$('#digest-filters').onclick=e=>{const button=e.target.closest('[data-filter]');if(!button)return;state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(el=>el.classList.toggle('active',el===button));renderDigest();};
+$('#digest-filters').onclick=e=>{
+  const button=e.target.closest('[data-filter],[data-event-filter]');if(!button)return;
+  if(button.dataset.eventFilter!==undefined)state.eventFilter=button.dataset.eventFilter;
+  else {state.filter=button.dataset.filter;state.eventFilter='all';}
+  renderDigest();
+  if(button.dataset.eventFilter!==undefined)document.querySelector(`[data-event-filter="${button.dataset.eventFilter}"]`)?.focus({preventScroll:true});
+};
+$('#overview').onclick=e=>{const button=e.target.closest('[data-digest-target]');if(button)navigateDigest(button.dataset.digestTarget);};
+$('#routine-panel').addEventListener('toggle',()=>$('#overview [data-digest-target="routine"]')?.setAttribute('aria-expanded',String($('#routine-panel').open)));
+$('#routine-panel summary').tabIndex=0;
 $('#preferences-button').onclick=()=>{
   if(state.digest){$('#price-threshold').value=state.digest.settings.price_percent;$('#volume-threshold').value=state.digest.settings.volume_multiple;}
   $('#settings-status').textContent='Applied to saved market bars.';
@@ -194,3 +252,8 @@ const ensureComplete=createCompanyCompletion({
 });
 analysisProgress.restore();
 bindTickers();loadDigest();if(location.hash==='#research')showView('research');
+
+// Read saved digest data only; fetching sources is the server's daily/manual job.
+function syncSavedDigest(){if(!document.hidden&&!$('#view-digest').hidden&&!$('#refresh-button').disabled)loadDigest();}
+setInterval(syncSavedDigest,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncSavedDigest();});

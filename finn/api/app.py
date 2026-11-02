@@ -37,6 +37,21 @@ async def lifespan(app: FastAPI):
     stop = threading.Event()
     if app.state.pipeline.settings.finn_embedded_worker:
         from finn.jobs.worker import run_once
+        from finn.jobs.schedule import queue_daily_refresh
+        def schedule_loop():
+            from time import monotonic
+            last_cleanup = -3600
+            while not stop.is_set():
+                try:
+                    if monotonic() - last_cleanup >= 3600:
+                        app.state.pipeline.store.prune_push_alerts()
+                        last_cleanup = monotonic()
+                    queue_daily_refresh(app.state.pipeline.store)
+                except Exception as exc:
+                    logging.getLogger(__name__).error("Refresh scheduler error: %s", type(exc).__name__)
+                stop.wait(15)
+        app.state.scheduler_thread = threading.Thread(target=schedule_loop, daemon=True, name="finn-scheduler")
+        app.state.scheduler_thread.start()
         def worker_loop():
             while not stop.is_set():
                 try:

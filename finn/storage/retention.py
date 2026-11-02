@@ -5,6 +5,7 @@ import time
 from zoneinfo import ZoneInfo
 
 from finn.sources.universe import PUSH_COMPANIES
+from finn.storage import push_alerts
 
 SECTIONS = {'financials-v1', 'research-v1', 'business-profile-v2', 'trajectory-v1'}
 TICKER_CACHES = SECTIONS | {'discovery-v1', 'business-v1', 'completion-context-v1', 'research-availability-v1', 'company-view-v1'}
@@ -22,6 +23,7 @@ def mirror_push(db, namespace, key, payload, created):
         pass
     elif namespace == 'announcements-v1' and isinstance(payload, list):
         payload = [event for event in payload if event.get('ticker') in PUSH]
+        push_alerts.save(db, 'filing', payload)
         if not payload:
             return
     elif namespace == 'results-headlines-v1':
@@ -46,6 +48,8 @@ def schema(db):
     db.executescript('''
         CREATE TABLE IF NOT EXISTS push_portfolio(ticker TEXT PRIMARY KEY,position INTEGER NOT NULL,sector TEXT NOT NULL,source_ticker TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS push_cache(namespace TEXT NOT NULL,key TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(namespace,key));
+        CREATE TABLE IF NOT EXISTS push_alerts(item_id TEXT PRIMARY KEY,ticker TEXT NOT NULL,kind TEXT NOT NULL,occurred REAL NOT NULL,payload TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS push_alerts_by_date ON push_alerts(occurred);
         CREATE TABLE IF NOT EXISTS research_cache(namespace TEXT NOT NULL,key TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(namespace,key));
         CREATE TABLE IF NOT EXISTS company_access(ticker TEXT PRIMARY KEY,last_opened REAL NOT NULL,pinned INTEGER NOT NULL,retained INTEGER NOT NULL DEFAULT 1);
         CREATE TABLE IF NOT EXISTS dated_cache(namespace TEXT NOT NULL,ticker TEXT NOT NULL,as_of TEXT NOT NULL,payload TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(namespace,ticker,as_of));
@@ -80,6 +84,7 @@ def schema(db):
             db.execute('INSERT OR IGNORE INTO dated_cache VALUES(?,?,?,?,?)', (row['namespace'], ticker, dated(payload,row['created']), row['payload'], row['created']))
     db.execute('UPDATE company_access SET pinned=0')
     prune(db)
+    push_alerts.prune(db)
 
 
 def register(db, ticker, stamp=None, opened=False):

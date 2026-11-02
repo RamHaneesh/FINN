@@ -15,6 +15,23 @@ from finn.sources.profile import CACHE as PROFILE_CACHE
 from finn.sources.universe import COMPANIES
 
 
+def market_items(ticker, bars, settings):
+    result = []
+    if len(bars) < 21:
+        return result
+    last, previous = bars[-1], bars[-2]
+    baseline = sum(bar.volume for bar in bars[-21:-1]) / 20
+    for item in market_attention(ticker, bars, settings['price_percent'], settings['volume_multiple']):
+        data = item.model_dump(mode='json')
+        data.update(category=item.kind, priority='high', occurred_at=datetime.combine(last.date, time(16), tzinfo=ZoneInfo('Asia/Kolkata')).isoformat())
+        data['market'] = {'volume':last.volume, 'average_volume':baseline,
+                          'multiple':last.volume / baseline if baseline else None,
+                          'close':last.close, 'previous_close':previous.close,
+                          'change_percent':(last.close / previous.close - 1) * 100}
+        result.append(data)
+    return result
+
+
 class PortfolioService:
     def __init__(self, pipeline):
         self.pipeline, self.store = pipeline, pipeline.store
@@ -49,9 +66,11 @@ class PortfolioService:
     def digest(self, hours=24):
         settings = self.preferences()
         now = datetime.now(ZoneInfo("Asia/Kolkata"))
+        hours = min(max(hours, 1), 720)
         cutoff = now - timedelta(hours=hours)
         items, routine, warnings, portfolio, refreshed = [], [], [], [], []
-        events = {}
+        events = {event['event_id']:event for event in self.store.push_alerts('filing', days=30) if event['ticker'] in {company['ticker'] for company in self.companies}}
+        items.extend(item for item in self.store.push_alerts('market', days=30) if datetime.fromisoformat(item['occurred_at']) >= cutoff)
         portfolio_symbols = {company["ticker"] for company in self.companies}
         for window in self.store.push_values("announcements-v1"):
             for event in window:
@@ -67,18 +86,9 @@ class PortfolioService:
             if saved:
                 refreshed.append(saved["refreshed_at"])
                 warnings.extend(f"{ticker}: {warning}" for warning in saved.get("warnings", []))
-            if bars:
-                for item in market_attention(ticker, bars, settings["price_percent"], settings["volume_multiple"]):
-                    data = item.model_dump(mode="json")
-                    data.update(category=item.kind, priority="high", occurred_at=datetime.combine(last.date, time(16), tzinfo=ZoneInfo("Asia/Kolkata")).isoformat())
-                    baseline = sum(bar.volume for bar in bars[-21:-1]) / 20
-                    data["market"] = {"volume": last.volume, "average_volume": baseline,
-                                      "multiple": last.volume / baseline if baseline else None,
-                                      "close": last.close, "previous_close": previous.close,
-                                      "change_percent": (last.close / previous.close - 1) * 100}
-                    # Latest EOD signals remain active until the next saved session.
-                    data["reason"] += " Active for the latest saved trading session."
-                    items.append(data)
+            if bars and now - timedelta(days=30) <= datetime.combine(last.date, time(16), tzinfo=ZoneInfo('Asia/Kolkata')) <= now:
+                # Keep the latest saved EOD session active, but never beyond 30 days.
+                items.extend(market_items(ticker, bars, settings))
         for raw in events.values():
             event = Announcement.model_validate(raw)
             if not cutoff <= event.published_at <= now:
@@ -136,12 +146,16 @@ class PortfolioService:
         for index, company in enumerate(self.companies):
             ticker = company["ticker"]
             progress(f"refreshing_{ticker}_{index + 1}_of_{len(self.companies)}")
-            result = self.pipeline.refresh(ticker, days=30, price_threshold=settings["price_percent"], volume_multiple=settings["volume_multiple"])
+            result = self.pipeline.refresh(ticker, days=90, price_threshold=settings["price_percent"], volume_multiple=settings["volume_multiple"], force=True)
             failures.extend(result["warnings"])
+            bars = [PriceBar.model_validate(bar) for bar in self.store.get_push('prices-v1', ticker) or []]
+            for end in range(21, len(bars) + 1):
+                self.store.save_push_alerts(market_items(ticker, bars[max(0, end-21):end], settings))
             try:
                 FinancialSource(self.store, self.pipeline.http).fetch(ticker)
             except Exception:
                 failures.append(f"{ticker}: financial table unavailable")
+        self.store.prune_push_alerts()
         from finn.services.results import enqueue_results
         jobs = enqueue_results(self.pipeline, limit=2)
         return {"companies": len(self.companies), "warnings": failures, "results_jobs": [job["id"] for job in jobs]}

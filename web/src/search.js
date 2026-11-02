@@ -41,7 +41,7 @@ export function createTickerSearch({api, onChoose}) {
   }
   function ranked(query) {
     const q = normalize(query);
-    if (!q) return recent.length ? recent : directory.slice(0,6);
+    if (!q) return recent;
     const words = q.split(/\s+/);
     return directory.map(item => {
       const ticker = normalize(item.ticker), name = normalize(item.name);
@@ -60,9 +60,11 @@ export function createTickerSearch({api, onChoose}) {
     const isRecent = !input.value.trim() && recent.length > 0;
     heading.textContent = isRecent ? 'Recent searches' : input.value.trim() ? 'Matching companies' : 'NSE companies';
     clear.hidden = !isRecent;
-    list.innerHTML = matches.map((item,index) => `<button type="button" role="option" id="ticker-option-${index}" aria-selected="false" class="ticker-option" data-option="${index}"><span class="suggestion-symbol">${highlight(item.ticker)}</span><span class="suggestion-name">${highlight(item.name)}</span><span class="suggestion-exchange">NSE</span></button>`).join('');
+    list.innerHTML = matches.map((item,index) => `<button type="button" role="option" id="ticker-option-${index}" aria-selected="false" class="ticker-option" data-option="${index}"><span class="suggestion-copy"><span class="suggestion-name">${highlight(item.name)}</span><span class="suggestion-symbol">${highlight(item.ticker)}</span></span><span class="suggestion-exchange">NSE</span></button>`).join('');
     list.querySelectorAll('[data-option]').forEach(button => button.onclick = () => choose(matches[Number(button.dataset.option)]));
-    note.textContent = matches.length ? (!complete ? 'Showing saved companies. Any NSE ticker can still be entered.' : 'Tap a company, or use ↑ ↓ and Enter.') : 'No suggestions. You can still enter an exact NSE ticker.';
+    note.textContent = matches.length ? '' : 'No matching companies';
+    note.hidden = matches.length > 0;
+    if (!input.value.trim() && !recent.length) { close(); return; }
     popup.hidden = false;
     input.setAttribute('aria-expanded','true');
     input.removeAttribute('aria-activedescendant');

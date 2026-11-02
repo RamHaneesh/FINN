@@ -99,5 +99,114 @@ h1,h2,h3,.brand-logo,.brand,.brand-mark,.mobile-brand,.ticker-badge{
 #routine-panel{background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:14px;box-shadow:0 1px 2px #0F172A06}#routine-panel>summary{color:#1F2937;font-size:12px;font-weight:600;gap:10px;line-height:1.6}#routine-panel>summary>span{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#routine-panel #routine-count{display:inline-flex;align-items:center;justify-content:center;background:#E2E8F0;color:#334155;border:1px solid #CBD5E1;border-radius:4px;min-width:23px;padding:1px 5px;font-size:10px;font-weight:700;margin:0}#routine-panel>summary>svg{color:#64748B;stroke-width:2.2;width:17px;height:17px;flex-shrink:0;transition:transform .15s}#routine-panel[open]>summary>svg{transform:rotate(90deg)}#routine-panel>.muted{color:#475569;font-size:11px;margin:10px 0}#routine-panel .routine-row{color:#374151;border-color:#E2E8F0;font-size:12px;line-height:1.6}#routine-panel .routine-row strong{color:#1F2937;font-size:12px;font-weight:600}#routine-panel .routine-row a{color:#64748B}
 @media(max-width:640px){.digest-header-actions{gap:5px}.digest-header-actions .button{font-size:10px;padding:6px 8px;gap:5px;min-height:34px}.digest-header-actions .button svg{width:13px;height:13px}.preferences-dialog{padding:18px}.preferences-dialog label{font-size:11px}.preferences-dialog input{width:68px}.page-heading{flex-wrap:wrap}#routine-panel{padding:12px}#routine-panel>summary{font-size:11px}}
 
+/* Digest navigation: keep the current palette and typography. */
+.overview{padding:0;overflow:hidden}
+.digest-shortcut{appearance:none;border:0;border-radius:0;background:transparent;color:inherit;display:flex;align-items:center;justify-content:center;gap:4px;padding:9px 6px;min-height:48px;font:inherit;cursor:pointer}
+.digest-shortcut+ .digest-shortcut{border-left:1px solid #CBD5E1}
+.digest-shortcut span{font-size:11px;color:#475569}
+.digest-shortcut:hover,.digest-shortcut[aria-pressed="true"],.digest-shortcut[aria-expanded="true"]{background:#E2E8F0}
+.digest-shortcut:focus-visible,.source-badge:focus-visible,#digest-filters button:focus-visible{outline:2px solid #64748B;outline-offset:-3px}
+.digest-section-cards{display:grid;gap:10px}
+.digest-section-heading{margin:2px 0 9px}
+.digest-section-heading h3{margin:0;font-size:13px;font-weight:600;color:inherit;scroll-margin-top:85px}
+.digest-section-heading h3:focus{outline:none}
+.digest-section+.digest-section:not([hidden]){margin-top:8px}
+.digest-empty{font-size:12px;color:#64748B;line-height:1.6;margin:8px 0 14px}
+.digest-empty-action{margin:0 0 10px}
+.event-filters{margin-top:-4px;padding-left:9px;border-left:2px solid #E2E8F0}
+#digest-filters .event-filters .filter{font-size:11px;padding:5px 9px;min-height:32px}
+.signal-actions .source-badge,#routine-panel .source-badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid #CBD5E1;border-radius:5px;padding:5px 8px;min-height:32px;background:#F8FAFC;color:#334155;font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap;line-height:1.4}
+.signal-actions .source-badge:hover,#routine-panel .source-badge:hover{border-color:#94A3B8;background:#F1F5F9}
+.source-badge svg{width:12px;height:12px;flex:none}
+.routine-row>div{min-width:0;overflow-wrap:anywhere}
+.routine-row>.source-badge{flex-shrink:0}
+#routine-panel summary{scroll-margin-top:85px}
+@media(max-width:640px){.digest-shortcut{flex-direction:column;gap:1px;padding:7px 3px;min-height:53px}.digest-shortcut span{font-size:9px}.digest-shortcut strong{margin:0;font-size:16px;line-height:1.3}.signal-actions .source-badge,#routine-panel .source-badge{min-height:34px}.routine-row{flex-wrap:wrap;gap:6px}#digest-filters>.filter-row{gap:5px}#digest-filters>.filter-row>.filter{font-size:11px;padding:7px 9px;min-height:36px}}
+
 /* Progressive sections keep the top financial context usable during extraction. */
 .narrative-section{min-width:0}.narrative-section>.section-heading{margin-bottom:8px}#narrative-progress-slot .analysis-progress{margin:0 0 12px;padding:14px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;color:#334155}#narrative-progress-slot .analysis-heading h3{font-size:13px;font-weight:600;color:#0F172A;line-height:1.6}#narrative-progress-slot .analysis-detail{margin:8px 0 10px;color:#475569;font-size:11px}#narrative-progress-slot .analysis-state{color:#64748B}#narrative-progress-slot .analysis-timing{color:#475569;font-size:10px}.narrative-awaiting{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:7px;padding:14px;font-size:12px;color:#64748B}.section-skeleton{height:68px;border-radius:5px;background:repeating-linear-gradient(to bottom,#F1F5F9 0,#F1F5F9 10px,transparent 10px,transparent 23px);margin-top:12px}
+
+/* Balanced feed controls and card actions; no typography or colour-system change. */
+#digest-filters>.filter-row:first-child{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:100%;padding:4px;margin:0 0 14px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:9px}
+#digest-filters>.filter-row:first-child>.filter{display:flex;align-items:center;justify-content:center;text-align:center;min-width:0;min-height:40px;margin:0;padding:9px 6px;border:0;border-radius:6px;font-size:12px;background:transparent;white-space:nowrap}
+#digest-filters>.filter-row:first-child>.filter.active{background:#0F172A;color:#fff;box-shadow:0 1px 3px #0F172A14}
+#digest-filters .event-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 14px;padding:0;border:0;width:100%}
+#digest-filters .event-filters .filter{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 6px;font-size:11px;white-space:nowrap;border-radius:6px}
+.event-filter-count{font-size:10px;font-variant-numeric:tabular-nums;opacity:.8}
+.signal-header{align-items:center;gap:12px}
+.signal-header .company-label{flex:1}
+.signal-date{flex-shrink:0;color:#64748B;font-size:10px;font-weight:400;white-space:nowrap}
+.signal-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:11px;border-top:1px solid #E2E8F0}
+.signal-source{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.related-filings{color:#64748B;font-size:10px;white-space:nowrap}
+.signal-actions .deep-dive-button{min-height:34px;padding:5px 10px;background:transparent;border-color:transparent;line-height:20px}
+.signal-actions .deep-dive-button:hover{background:#F1F5F9;border-color:#E2E8F0}
+@media(max-width:640px){#digest-filters>.filter-row:first-child>.filter{font-size:11px;min-height:40px}.signal-actions{margin-top:12px;padding-top:11px}.signal-header{gap:8px}.signal-actions .source-badge{min-height:34px}.signal-actions .deep-dive-button{padding:5px 4px}.signal-card h3{margin-top:12px}.signal-source{gap:5px}}
+@media(max-width:360px){#digest-filters>.filter-row:first-child>.filter{white-space:normal;line-height:1.3}#digest-filters .event-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Today's briefing date is separate from the saved source refresh timestamp. */
+#view-digest .page-heading #briefing-date{display:block;margin:0 0 6px}
+
+/* One portfolio list for desktop and mobile; no duplicate holdings or counts. */
+.watch-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none;cursor:pointer;color:#0F172A;font-size:13px;font-weight:600}
+.watch-panel>summary::-webkit-details-marker{display:none}
+.watch-panel>summary svg{width:16px;height:16px;color:#64748B;transition:transform .15s}
+.watch-panel[open]>summary svg{transform:rotate(90deg)}
+.watch-panel>.muted{margin:9px 0 8px}
+.watch-row{cursor:default;align-items:flex-start;gap:12px}
+.watch-row:hover{background:transparent}
+.watch-company{min-width:0;flex:1}
+.watch-price{flex-shrink:0;white-space:nowrap;line-height:1.7;font-size:11px}
+.watch-value-label{font-size:9px;font-weight:400;color:#64748B}
+.watch-change{font-size:10px}
+.watch-research{display:inline-flex;align-items:center;min-height:30px;margin-top:3px;font-size:10px;font-weight:600;color:#334155;text-decoration:none}
+.watch-research:hover{text-decoration:underline}
+@media(max-width:640px){.topbar .mobile-brand{gap:9px;padding:0;margin-left:0}.mobile-brand .brand-mark{width:30px;height:32px;border-radius:8px;font-size:22px;color:#fff}.mobile-brand .brand-mark span{color:var(--lime);right:4px;bottom:2px}.mobile-brand .mobile-wordmark{color:#0F172A;font-size:21px;line-height:1.1}.mobile-brand .brand-caption{font-size:5px;letter-spacing:.8px;margin:3px 0 0;color:#64748B}.watch-research{min-height:36px}.watch-row strong{font-size:11px}.watch-sector{font-size:9px}}
+@media(max-width:900px){.content-columns>.watch-column{display:block;order:-1;margin-bottom:14px}.watch-column .watch-panel{display:block;padding:12px 14px}.watch-panel>summary{min-height:24px}.watch-panel #watchlist{max-height:350px;overflow-y:auto;overscroll-behavior:contain}.watch-panel .watch-row{min-height:48px}.watch-panel .watch-row:focus-visible{outline:2px solid #64748B;outline-offset:-2px}}
+
+/* A static, swipeable price tape: portfolio context without a vertical list. */
+#view-digest .content-columns{display:block}
+.portfolio-tape{min-width:0;margin:0 0 18px;padding:11px 0 0;background:#fff;border:1px solid #E2E8F0;border-radius:9px;overflow:hidden}
+.tape-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px 9px}
+.tape-heading h2{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;font-weight:600;color:#334155}
+.tape-heading>span{font-size:10px;color:#64748B;white-space:nowrap}
+#watchlist{display:flex;overflow-x:auto;overflow-y:hidden;max-width:100%;padding:0 0 8px;scroll-snap-type:x proximity;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#CBD5E1 transparent;-webkit-overflow-scrolling:touch}
+.tape-ticker{position:relative;flex:0 0 130px;display:grid;grid-template-columns:1fr auto;gap:5px 9px;padding:8px 12px;scroll-snap-align:start;font-variant-numeric:tabular-nums}
+.tape-ticker+.tape-ticker{border-left:1px solid #E2E8F0}
+.tape-ticker strong{grid-column:1/-1;font-size:11px;font-weight:700;color:#0F172A;line-height:1.4}
+.tape-price{font-size:11px;color:#334155;white-space:nowrap}
+.tape-change{font-size:10px;font-weight:600;align-self:center;white-space:nowrap}
+#watchlist:focus-visible{outline:2px solid #64748B;outline-offset:-2px}
+@media(max-width:640px){.portfolio-tape{margin-bottom:14px}.tape-ticker{flex-basis:130px}.tape-heading>span{font-size:9px}}
+
+/* Adaptive alert cards: one header action and an inline source, never a footer bar. */
+.signal-card .card-inner{padding:12px 16px}
+.signal-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px}
+.signal-header .company-label{flex:0 1 auto}
+.signal-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-left:auto;flex-shrink:0}
+.signal-header-actions .deep-dive-button{min-height:30px;padding:3px 7px;font-size:10px;line-height:20px;background:#F8FAFC;border:1px solid #E2E8F0}
+.signal-header-actions .signal-date{font-size:9px}
+.signal-card.filing-card h3{font-size:15px;font-weight:600;color:#0F172A;line-height:1.45;letter-spacing:0;margin:10px 0 8px}
+.signal-card.filing-card .card-inner>p{font-size:14px;font-weight:500;color:#0F172A;line-height:1.45;margin:6px 0 8px}
+.signal-attribution{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin-top:8px;color:#64748B;font-size:10px;line-height:1.5}
+.signal-attribution .source-badge{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:3px 6px;border:1px solid #E2E8F0;border-radius:5px;background:#F8FAFC;color:#475569;font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap}
+.signal-attribution .source-badge:hover{background:#F1F5F9;border-color:#94A3B8}
+.signal-attribution .source-context:before{content:'·';margin-right:6px;color:#94A3B8}
+.signal-attribution .source-context{min-width:0}
+@media(max-width:360px){.signal-header{gap:4px 8px}.signal-header-actions{gap:5px}.signal-header .company-label{gap:4px}.signal-header .ticker-badge{font-size:11px}.signal-header-actions .deep-dive-button{padding:3px 5px}}
+
+/* Company search: readable names, quiet ticker metadata, no instruction footer. */
+.search-suggestions{top:calc(100% + 7px);border:1px solid #CBD5E1;border-radius:10px;box-shadow:0 8px 24px #0F172A14;background:#fff}
+.suggestion-heading{min-height:36px;padding:7px 13px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;color:#64748B;font-size:10px;font-weight:600;letter-spacing:.2px}
+.clear-history{color:#475569;font-size:11px;min-height:30px}
+#ticker-suggestions{max-height:min(360px,44dvh);scrollbar-width:thin;scrollbar-color:#CBD5E1 transparent}
+.ticker-option{gap:12px;padding:11px 13px;min-height:62px;border-bottom:1px solid #F1F5F9}
+.ticker-option:last-child{border-bottom:0}
+.ticker-option:hover,.ticker-option[aria-selected=true]{background:#F1F5F9}
+.ticker-option:focus-visible{outline:2px solid #64748B;outline-offset:-2px;background:#F1F5F9}
+.suggestion-copy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.suggestion-copy .suggestion-name{display:block;flex:none;font-size:13px;font-weight:600;color:#0F172A;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.suggestion-copy .suggestion-symbol{min-width:0;font-size:10px;font-weight:500;line-height:1.4;color:#64748B;letter-spacing:.3px}
+.suggestion-exchange{flex-shrink:0;border:1px solid #E2E8F0;border-radius:4px;padding:3px 5px;background:#F8FAFC;color:#64748B;font-size:9px;font-weight:500}
+.ticker-option mark{color:inherit;background:#E2E8F0;border-radius:2px;font-weight:700}
+.suggestion-note{padding:13px;color:#64748B;background:#fff;border:0;font-size:12px}
