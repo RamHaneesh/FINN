@@ -1,197 +1,230 @@
+# FINN — Financial Investment Agent
 
-# FINN: Financial Investment Agent
+**A mobile-first investment research prototype for the ENAM Holdings AI Engineer Build Challenge.**
 
-**A mobile-first financial research tool for public-market investors**
+[Open the live demo](https://finn-investment-agent-f3ra.onrender.com/) · No login required
 
-[**Live Mobile Demo**](https://finn-investment-agent-f3ra.onrender.com/) · No login required
+FINN helps investors answer two questions: **What changed in my portfolio?** and **Did management deliver what it promised?**
 
----
-> [!NOTE]
-> docs/AI_BUILD_CHAT_HISTORY.md and docs/ai_build_history.md contain identical chat histories and differ only in filename
+| View | What it does |
+|---|---|
+| **Push Digest** | Tracks 18 fixed portfolio companies and highlights material filings and unusual price/volume moves. |
+| **Pull Deep Dive** | Researches any supported NSE ticker, including companies outside the portfolio. Opens saved sections first and fills missing data in the background. |
+
+**Try it in two minutes:** Open Push Digest, select **Last 7 days**, and tap a source badge. Then open Pull Deep Dive and search **INFY**, **DMART**, or another NSE ticker to explore the business, financials, and management guidance.
 
 ## 1. What I Built
 
-Investors have to go through many company announcements to find information that matters. Checking whether management has delivered on past promises also takes time, as the information is spread across earnings call transcripts and financial reports.
+### Push Digest
 
-FINN helps with both tasks through two main features:
+- **Material alerts:** Results, management changes, capital raises, M&A, and legal/risk events. Routine filings stay in an expandable section.
+- **Market moves:** Flags price changes of at least ±3% or volume above 2× the previous 20-session average. Thresholds can be changed in **Preferences**.
+- **Results cards:** Revenue, EBITDA, PBT, and PAT with quarter-on-quarter (QoQ) and year-on-year (YoY) changes where available.
+- **Portfolio ticker tape:** Swipe through the 18 holdings to see saved closing prices and daily changes.
+- **Source badges:** Open the filing or EOD price source directly from an alert.
 
-- **Push Digest:** Highlights important company announcements and unusual market movements while keeping routine filings separate.
-- **Company Deep Dive:** Lets users research a company, review its financial performance over five years, and compare management's past commitments against actual results.
+### Pull Deep Dive
 
-The main feature is **Narrative vs. Numbers**: comparing what management said it would achieve with what the company actually delivered.
+**Search any supported NSE company—not just the pre-warmed list.** The initial 50 companies are cached to give reviewers a faster first experience. Try a 51st company such as **CLEAN**, or any other NSE ticker you want to research. FINN fetches missing sections automatically; first-time analysis depends on source availability and Gemini quota. The 50-company limit applies only to saved research at a time, not the searchable universe.
 
-FINN uses company filings, financial statements, and earnings call transcripts as its main sources of information.
+Sections appear in this order:
 
-## 2. Why I Chose Narrative vs. Numbers
+| Section | What you see |
+|---|---|
+| **Business snapshot** | A short company description, plus products, brands, and segments disclosed in its profile. |
+| **Financial snapshot** | Quarterly Revenue, EBITDA, PBT, and PAT with QoQ/YoY changes. |
+| **5-year trajectory** | Up to five completed financial years: Revenue, revenue growth, EBITDA margin, and PAT, with Revenue/PAT CAGR summaries. |
+| **Narrative vs. Numbers** | Clear historical guidance comparisons marked **Met** or **Missed**, with source evidence. Future targets appear separately under **Active Guidance**. |
 
-The assessment offered several possible directions, including business snapshots, financial analysis, cash-flow quality, guidance, and bull-versus-bear analysis.
+Qualitative commentary is shown when strict numerical comparisons are unavailable. Vague or unmatched statements stay in expandable context sections rather than appearing as failed comparisons.
 
-I chose **Narrative vs. Numbers as the main feature**, supported by business snapshots, financial snapshots, five-year trends, and management guidance.
+## 2. Why Narrative vs. Numbers
 
-This gave the project one clear purpose: helping investors compare what management said with what the company actually delivered.
+Management promises and actual results are spread across documents and quarters. FINN puts the target, outcome, and evidence on one screen. Business and financial snapshots support this main workflow.
 
-The supporting features reuse the same financial data, making them useful without adding unnecessary complexity.
+### Deliberately deferred
 
-I deliberately deferred:
+Cash-flow forensics, detailed debt schedules, and bull/bear debates need further data and validation, so they are outside this prototype.
 
-- **Balance Sheet Analysis:** Debt, leverage, and working capital need additional sector-specific checks and interpretation.
-- **Cash-Flow Quality:** Comparing reported profits with cash generation requires another data pipeline and additional validation.
-- **Bull vs. Bear Analysis:** Building reliable investment cases requires broader evidence and more interpretation, increasing the risk of unsupported conclusions.
+## 3. Architecture and Technical Decisions
 
-## 3. Architecture and Key Decisions
+### Stack
+
+| Layer | Technology |
+|---|---|
+| Interface | Responsive HTML, CSS, and vanilla JavaScript; no frontend build step |
+| API and calculations | Python 3.12, FastAPI, Pydantic |
+| Storage | SQLite cache, job queue, and local PDF files |
+| Extraction | Gemini through the Google Gen AI SDK; PDF text parsed with pypdf |
+| Hosting | One Render service serving the frontend, API, worker, and scheduler |
+
+### Pipeline
 
 ```text
-Mobile Interface
-      |
-      v
-FastAPI Server (Python 3.12)
-      |
-      ├── SQLite Cache
-      |     ├── Company Profiles
-      |     ├── Financial Data
-      |     └── 5-Year Financial Trends
-      |
-      └── Research Worker
-            ├── Downloads and processes transcripts
-            ├── Gemini extracts relevant information
-            └── Python checks financial calculations
+Mobile browser → FastAPI → saved SQLite sections
+                      │
+                      ├─ Push: filings + EOD prices → rules → alert archive → digest
+                      │
+                      └─ Pull: company profile + financial tables → snapshots/trajectory
+                               primary transcripts → background Gemini extraction
+                                                   → Python comparison rules
 ```
 
-### Key Engineering Decisions
+### Code calculates; Gemini extracts
 
-- **AI extracts, code calculates:** Gemini extracts management statements, figures, and dates from transcripts. Python handles financial calculations and compares management's targets with reported results.
-- **Evidence before completeness:** When a statement is unclear or cannot be compared with reported financial data, FINN displays it as commentary with a source citation rather than assigning a Met/Missed result.
-- **Fast access to common companies:** Financial data for 50 NSE-listed companies is stored in a local SQLite database. Other companies can be researched through on-demand extraction.
-- **Separate Push and Pull universes:** Push uses a fixed 18-company portfolio in `config/portfolio.json`, mirrored in SQLite's `push_portfolio` table. The independent `config/pull_universe.json` defines the initial 50-company warm-up list; searching other tickers never changes Push membership.
-- **Pull cache retention:** Strictly 50 dynamic company slots, including portfolio tickers when opened in Pull. Every slot is eligible for least-recently searched eviction. Explicit company opens update recency; background polling does not. `research_cache` stores latest sections, `dated_cache` stores ticker/date versions and `company_access` tracks LRU metadata. Eviction removes Pull sections and owned extraction records. The separate `push_portfolio` and protected `push_cache` retain all 18 Push holdings and their price/filing/financial inputs. Raw PDF archives and usage logs are separate from the 50-company limit; this is not a total-disk quota.
-- **Research runs separately:** Basic company information and financial trends load first. Transcript analysis runs in the background so it does not hold up the rest of the page.
+Python calculates growth, margins, CAGR, alerts, and verdicts. Gemini extracts guidance from transcripts and financial facts from results filings. Business descriptions come directly from company profiles.
 
-## 4. Performance and Testing
+Quotes are checked against source text. Comparisons require matching metrics, periods, units, and reporting basis. Derived EBITDA is labeled and excluded from guidance comparisons.
 
-- **Response time:** The current local coverage/latency audit is recorded in `docs/coverage.md`. These are measured localhost responses, not a public/mobile latency guarantee.
-- **Company coverage:** 50 companies have profiles, financial snapshots and trajectory tables in the cache. Annual history is limited to what the source exposes (currently four observations for JIOFIN and three for Nestl� consolidated).
-- **Push portfolio:** Exactly 18 fixed companies: RELIANCE, TCS, HDFCBANK, INFY, DIXON, CAMS, NTPC, DMART, TRENT, LT, BHARTIARTL, MARUTI, HAL, ZOMATO, SUNPHARMA, BAJFINANCE, TATAMOTORS and SIEMENS.
-- **Transcript reports:** 34 companies have verified transcript reports. TRENT is marked as having no public transcript archive.
-- **Tests:** 40 backend unit tests and 3 automated UI checks cover the pipelines, Push/Pull isolation, cache retention and progressive completion.
+### Data sources
+
+| Data | Source |
+|---|---|
+| Push announcements | NSE exchange filings |
+| Transcripts and results evidence | Primary company/exchange documents, including BSE/NSE-hosted PDFs |
+| Business profiles and standardized financial tables | Screener company pages |
+| EOD prices and volumes | Yahoo Finance through yfinance |
+
+The brief names Yahoo Finance for prices, NSE/BSE for filings, and Screener or company investor-relations sites for report/transcript links. The reference glossary also identifies Screener as a source of standardized financials.
+
+Screener profile text and standardized tables provide company context; they are not original company documents. Narrative evidence uses primary transcripts and filings, with source citations. FINN does not use news sentiment, social media, or broker recommendations.
+
+### Separate Push and Pull storage
+
+| Policy | Behavior |
+|---|---|
+| **Push portfolio** | Fixed membership in `push_portfolio`; protected inputs in `push_cache`. Pull searches never change it. |
+| **Push alerts** | Stored in `push_alerts` for 90 days by event date. The digest shows at most 30 days, defaulting to 24 hours. Expired alerts are removed at startup, hourly, and after refreshes. |
+| **Pull research** | Strictly 50 dynamic company slots. A 51st company evicts the least recently searched company, including its saved sections and owned extraction records. Portfolio companies have no reserved Pull slots. |
+| **Research history** | Latest sections live in `research_cache`; dated versions in `dated_cache`. Push cleanup does not delete financial history, transcripts, or narrative comparisons. Pull eviction still follows its own policy. |
+
+Raw PDF archives and usage logs are separate from the 50-company limit; it is not a total disk-space limit.
+
+### Refreshing data
+
+- **Push:** Queues a refresh of filings and EOD data daily at **6:30 pm IST**, including weekends. A busy worker may delay execution. Users can also tap **Refresh** anytime. The server must be running; restarting after 6:30 pm catches up that day once, with duplicate prevention stored in SQLite.
+- **Pull:** Missing sections load automatically when a company is opened. Existing analysis shows its last analysed date; tap **Update analysis** to run the research again when it is old.
+- **While analysis runs:** Saved sections remain usable, and the narrative section updates when processing finishes.
+
+
+## 4. Coverage and Verification
+
+The figures below describe the pre-warmed demo cache, not a restriction on company coverage. Uncached NSE companies follow the same research pipeline.
+
+The [3 November 2026 coverage audit](docs/coverage.md) records:
+
+- **50/50** saved business profiles, financial snapshots, and trajectory tables.
+- **48** saved research reports. Primary transcripts were unavailable in the searched archive for **TRENT** and **ITC**.
+- **300** cached localhost requests, all below 50 ms; maximum **30.87 ms**. These are local measurements, not a public/mobile latency guarantee.
+- A **51st-company test with CLEAN** confirmed that Pull stayed at 50 companies while all 18 Push holdings remained unchanged.
+
+### Fixed Push portfolio
+
+```text
+RELIANCE, TCS, HDFCBANK, INFY, DIXON, CAMS, NTPC, DMART, TRENT,
+LT, BHARTIARTL, MARUTI, HAL, ZOMATO, SUNPHARMA, BAJFINANCE,
+TATAMOTORS, SIEMENS
+```
+
+Membership is defined in [`config/portfolio.json`](config/portfolio.json). The initial 50-company research list is in [`config/pull_universe.json`](config/pull_universe.json); it does not limit what users can search.
+
+Checks cover financial calculations, source evidence, cache isolation, scheduling, and alert retention. Commands to run them are included in the setup section.
 
 ## 5. Mobile Reviewer Walkthrough
 
-### Push Digest (Company Updates and Market Movements)
+### Explore the digest
 
-**What you see:**
+1. Choose **Last 7 days** or **Last 30 days**.
+2. Tap a summary count to jump to its section; Routine Filtered also expands its list.
+3. Filter by **Company events** or **Market moves**, then verify a source badge.
+4. Tap **Deep dive →** on an alert to research the company. The ticker tape has no research links.
 
-- A feed of important company announcements and unusual market movements, with routine filings kept separate.
-- Badges highlighting volume spikes, sharp price movements, management changes, and earnings releases.
-- Financial results cards showing Revenue, EBITDA, PBT, and PAT, along with quarter-on-quarter and year-on-year changes.
+### Research a company
 
-**What you can do:**
+1. Search **INFY**, **DMART**, or any supported NSE ticker, or reopen a recent search.
+2. Read the snapshots and trajectory, then inspect guidance comparisons and citations.
+3. Try another NSE ticker to see missing sections load automatically.
+4. For older saved research, check **Last analysed** and tap **Update analysis** to run it again.
 
-- Filter the feed by Results, Management, or Market Moves, and change the time window.
-- Expand the Routine & Lower-Priority Filings section to view announcements that are kept out of the main feed.
-- Open Preferences to view or change the thresholds used for market alerts.
-- Tap **Deep dive →** on an alert to open the company's research page.
+Tap the **FINN** logo to return to the default digest and reset its filters.
 
-### Company Deep Dive (On-Demand Research)
+## 6. Trade-offs and Known Limits
 
-**What you see:**
+- **EOD, not streaming:** Prices are saved closing data. A recent refresh does not mean live prices or complete filing coverage; source gaps are shown.
+- **Available evidence:** Missing transcripts do not prove a company never holds calls. FINN avoids inventing comparisons when evidence is missing.
+- **Financial history:** JIOFIN currently has four annual observations; NESTLEIND consolidated has three. Shorter histories and CAGR periods are labeled.
+- **Reporting differences:** Consolidated/standalone basis is preserved. Derived EBITDA is a proxy, not separately disclosed EBITDA.
+- **Legacy ticker labels:** ZOMATO uses ETERNAL source data; TATAMOTORS uses TMPV source data. Historical periods may span corporate reorganizations.
+- **First-time research:** Uncached companies need network access; parsing and extraction take longer than reading saved data.
+- **Render storage:** Bundled data restores the cached demo on fresh deployments. New runtime data can reset on the free service's temporary filesystem. Keeping it awake does not make storage persistent.
 
-- **Business Snapshot:** An overview of the company's business, main segments, and products.
-- **Financial Snapshot:** Recent quarterly financial results with growth and margin figures.
-- **5-Year Trajectory:** A table showing how revenue, profit, and margins have changed over five years, including growth rates.
-- **Narrative vs. Numbers:** When available, compares management's past commitments with reported financial results and shows whether a target was met or missed.
-- **Active Guidance & Commentary:** When available, shows future targets and management statements that cannot be directly compared with financial results, along with
-source citations.
+## 7. Next Milestones
 
-**What you can do:**
-
-- Search for any NSE-listed company using the search bar or quick-selection chips.
-- Open transcript citations to read the original statement, along with the speaker and page reference.
-- Tap the FINN logo to reset filters and return to the default digest.
-
-## 6. Key Trade-offs and What I Left Out
-
-- **Mobile-first interface:** I focused on a simple, single-column layout rather than a large desktop dashboard. This keeps the information easy to scan on a phone.
-- **Primary sources only:** I left out broker reports, news articles, and sentiment analysis to keep the research focused on company disclosures and reported financials.
-- **No forced scorecards:** Qualitative or unclear management statements are shown as commentary rather than assigned an unsupported numerical result.
-- **No live intraday streaming:** I focused on end-of-day market movements and company announcements rather than building a live streaming system.
-- **Single-service deployment:** The application runs as one FastAPI service on Render. The SQLite database is included with the repository to make the cached data available when the service starts.
-
-## 7. Where I Would Take It Next
-
-- **Cash-flow analysis:** Compare reported profits with operating cash flow to identify companies whose profits are not translating into cash.
-- **Live exchange updates:** Add real-time company announcement feeds to make important updates available sooner.
-- **Earnings call audio:** Process earnings call audio to identify changes in management's statements before written transcripts become available.
+- Add cash-flow reconciliation with sector-specific checks.
+- Extract debt maturity schedules and annual-report footnotes.
+- Add earnings-call audio transcription when written transcripts are unavailable.
 
 ## 8. AI Build History
 
-A sanitized Markdown export of my Codex build session, covering the development process, prompts, and testing, is available [here](docs/ai_build_history.md).
+Development prompts, decisions, and iterations are documented in [the build history](docs/ai_build_history.md). [AI_BUILD_CHAT_HISTORY.md](docs/AI_BUILD_CHAT_HISTORY.md) contains the same export under an alternative filename.
 
-## 9. Local Setup
+## 9. Local Setup and Deployment
 
-### Requirements
+### Prerequisites
 
-- Python 3.12
-- Git
+Python **3.12**, Git, and optionally Node.js 18+ for frontend checks.
 
-### Run the application
+### Install and run
 
 ```bash
 git clone https://github.com/RamHaneesh/FINN.git
 cd FINN
-
 python -m venv .venv
+```
 
-# Linux / macOS
+Activate the environment for your shell:
+
+```powershell
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS / Linux
 source .venv/bin/activate
+```
 
-# Windows
-# .venv\Scripts\activate
+Then install and start FINN:
 
+```bash
 pip install -r requirements.txt
-
 python -m scripts.serve --host 0.0.0.0 --port 8000
 ```
 
-Open http://localhost:8000 in your browser.
+Open [localhost:8000](http://localhost:8000). For a phone on the same Wi-Fi network, open `http://<your-computer-LAN-IP>:8000` if local firewall settings allow it.
 
-For mobile testing, use a browser's device emulation at a width of approximately 390px.
+### Configure Gemini
 
-### Run Tests
+Cached research can be browsed without a key. New model extraction requires a Gemini API key and available quota.
 
-```bash
-# Backend tests
-python -m unittest discover -s tests -v
+Copy `.env.example` to `.env` in the project root and set:
 
-# UI tests (requires Node.js)
-node --test tests/test_analysis_ui.mjs tests/test_company_ui.mjs tests/test_completion_ui.mjs
+```dotenv
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
+Keep `.env` private. FINN reads it automatically at startup; restart the server after changing it. No OpenAI key is required.
 
-### Automatic Push refresh
+### Run checks
 
-Run with `python -m scripts.serve` to enable the embedded worker and daily scheduler.
-The fixed 18-company Push portfolio refreshes daily at **6:30 pm IST**, including weekends
-(prices may reflect the previous trading session). The scheduler checks every 15 seconds
-and queues fetching on the existing worker; busy research jobs can delay execution.
-SQLite prevents duplicate scheduled runs for the same IST date across restarts.
-Starting after 6:30 pm catches up that day once; older missed days are not replayed.
-Users can retry failed refreshes or refresh anytime with **Refresh**. Manual and scheduled
-refreshes bypass price/filing fetch caches and share an active portfolio refresh job.
-Visible digest screens read saved results every 60 seconds and when returning to the app;
-these checks do not fetch sources or call Gemini. The server process must remain running.
-The daily marker persists with SQLite; resetting ephemeral storage resets that marker.
+```bash
+python -m unittest discover -s tests -v
+node --test tests/test_analysis_ui.mjs tests/test_company_ui.mjs tests/test_completion_ui.mjs tests/test_digest_ui.mjs
+```
 
+### Deploy on Render
 
-### Push alert retention
+Use [`render.yaml`](render.yaml) for the single-service configuration. Set `GEMINI_API_KEY` privately in Render; the server reads Render's `PORT` automatically. Keep one service instance and use `python -m scripts.serve` so the embedded worker and scheduler start together.
 
-Push filings and market-move alerts have a separate 90-day archive, keyed by event ID.
-Refreshes fetch 90 days of filings and calculate historical market signals in code;
-repeated fetches update existing events rather than duplicating them. The digest remains
-limited to the latest 30 days (24 hours by default). The latest EOD signal can remain
-active between trading sessions, but is never displayed beyond 30 days.
-Expired Push alerts and duplicate alert payloads in source snapshots are deleted at
-startup, hourly while the server runs, and after portfolio refreshes. Retention uses the
-event date, not the download date. Available history fills on the next successful refresh;
-source failures do not erase previously saved, unexpired alerts.
-Financial history, price history, primary transcript files, extracted evidence and
-narrative comparisons are excluded from this cleanup and retain their separate research-cache policy.
+See [deployment instructions](docs/DEPLOYMENT.md) for environment variables and storage details. Check [`/api/health`](https://finn-investment-agent-f3ra.onrender.com/api/health) for API and worker status.
